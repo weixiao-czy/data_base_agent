@@ -3,7 +3,7 @@
 """
 
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 
 class AgentState(Enum):
@@ -26,7 +26,10 @@ class StateMachine:
         self.current_state = AgentState.IDLE
         self.max_rounds = max_rounds
         self.current_round = 0
-        self.clarification_history = []
+        self.clarification_history: List[Dict[str, Any]] = []
+        self.user_input = ""
+        self.interpretation = ""
+        self.plan_card = None
     
     def transition(self, next_state: AgentState) -> None:
         """状态转换"""
@@ -45,3 +48,21 @@ class StateMachine:
         self.current_state = AgentState.IDLE
         self.current_round = 0
         self.clarification_history.clear()
+        self.user_input = ""
+        self.interpretation = ""
+        self.plan_card = None
+    
+    def add_to_history(self, role: str, content: str, metadata: Dict[str, Any] = None) -> None:
+        """添加对话历史"""
+        entry = {"role": role, "content": content}
+        if metadata:
+            entry["metadata"] = metadata
+        self.clarification_history.append(entry)
+    
+    def get_remaining_rounds(self) -> int:
+        """获取剩余澄清轮次"""
+        return max(0, self.max_rounds - self.current_round)
+    
+    def should_force_converge(self) -> bool:
+        """是否应该强制收敛"""
+        return self.current_round >= self.max_rounds
