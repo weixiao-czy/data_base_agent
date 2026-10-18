@@ -1,0 +1,17 @@
+# 配置文件示例
+# 复制为 settings.yaml 并填入实际配置
+
+# SciMaster API 配置
+scimaster:
+  api_key: ""  # 通过环境变量 SCIMASTER_API_KEY 设置更安全
+  base_url: "https://api.scimaster.cn"
+
+# Agent 配置
+agent:
+  max_clarification_rounds: 3  # 最大澄清轮次
+  default_search_limit: 10     # 默认检索结果数量
+
+# 日志配置
+logging:
+  level: "INFO"
+  file: "logs/agent.log"
