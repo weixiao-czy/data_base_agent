@@ -32,16 +32,18 @@ class LLMClient(ABC):
 class OpenAIClient(LLMClient):
     """OpenAI API 客户端"""
     
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None):
         """
         初始化 OpenAI 客户端
         
         Args:
             api_key: OpenAI API Key，如果不提供则从环境变量 OPENAI_API_KEY 读取
             model: 模型名称，如果不提供则从环境变量 OPENAI_MODEL 读取，默认为 gpt-3.5-turbo
+            base_url: API base URL，如果不提供则从环境变量 OPENAI_BASE_URL 读取
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.base_url = base_url or os.getenv("OPENAI_BASE_URL")
         
         if not self.api_key:
             raise ValueError("请提供 API Key 或设置环境变量 OPENAI_API_KEY（可以在 .env 文件中配置）")
@@ -49,6 +51,8 @@ class OpenAIClient(LLMClient):
         try:
             import openai
             openai.api_key = self.api_key
+            if self.base_url:
+                openai.api_base = self.base_url
         except ImportError:
             raise ImportError("请先安装 openai 包：pip install openai")
     
