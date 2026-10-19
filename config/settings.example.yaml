@@ -6,6 +6,12 @@ scimaster:
   api_key: ""  # 通过环境变量 SCIMASTER_API_KEY 设置更安全
   base_url: "https://api.scimaster.cn"
 
+# OpenAI API 配置
+openai:
+  api_key: ""  # 通过环境变量 OPENAI_API_KEY 设置更安全
+  model: "gpt-3.5-turbo"  # 或 gpt-4
+  temperature: 0.7
+
 # Agent 配置
 agent:
   max_clarification_rounds: 10  # 最大澄清轮次

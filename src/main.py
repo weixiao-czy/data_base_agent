@@ -3,20 +3,42 @@
 """
 
 import sys
+import os
 from agent.state_machine import StateMachine, AgentState
 from agent.clarifier import Clarifier
 from agent.plan_card import PlanCardGenerator
 from search.scimaster_mcp import SciMasterMCPProvider
 from search.scimaster_cli import SciMasterCLIProvider
 from presentation.render_results import render_results, render_plan_card
+from llm.client import OpenAIClient, MockLLMClient
 
 
 class LiteratureSearchAgent:
     """文献检索需求翻译 Agent"""
     
-    def __init__(self, max_rounds: int = 10):
+    def __init__(self, max_rounds: int = 10, use_mock_llm: bool = False):
+        """
+        初始化 Agent
+        
+        Args:
+            max_rounds: 最大澄清轮次
+            use_mock_llm: 是否使用模拟 LLM（用于测试）
+        """
         self.state_machine = StateMachine(max_rounds=max_rounds)
-        self.clarifier = Clarifier()
+        
+        # 初始化 LLM 客户端
+        if use_mock_llm:
+            llm_client = MockLLMClient()
+            print("使用模拟 LLM 模式")
+        else:
+            try:
+                llm_client = OpenAIClient()
+                print("使用 OpenAI LLM 模式")
+            except Exception as e:
+                print(f"OpenAI 初始化失败，降级到模拟模式: {e}")
+                llm_client = MockLLMClient()
+        
+        self.clarifier = Clarifier(llm_client=llm_client)
         self.plan_card_generator = PlanCardGenerator()
         
         # 初始化检索提供者（MCP 优先，CLI 降级）
@@ -284,7 +306,18 @@ class LiteratureSearchAgent:
 
 def main():
     """主函数"""
-    agent = LiteratureSearchAgent()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="文献检索需求翻译 Agent")
+    parser.add_argument("--mock-llm", action="store_true", help="使用模拟 LLM（用于测试）")
+    parser.add_argument("--max-rounds", type=int, default=10, help="最大澄清轮次（默认：10）")
+    
+    args = parser.parse_args()
+    
+    agent = LiteratureSearchAgent(
+        max_rounds=args.max_rounds,
+        use_mock_llm=args.mock_llm
+    )
     agent.run()
 
 

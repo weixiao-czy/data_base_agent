@@ -6,5 +6,8 @@ PyYAML>=6.0
 # 测试框架
 pytest>=7.0
 
+# LLM 调用
+openai>=1.0.0
+
 # MCP 客户端（待确认具体包名）
 # mcp-client
