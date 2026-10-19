@@ -8,7 +8,7 @@ scimaster:
 
 # Agent 配置
 agent:
-  max_clarification_rounds: 3  # 最大澄清轮次
+  max_clarification_rounds: 10  # 最大澄清轮次
   default_search_limit: 10     # 默认检索结果数量
 
 # 日志配置

@@ -14,7 +14,7 @@ from presentation.render_results import render_results, render_plan_card
 class LiteratureSearchAgent:
     """文献检索需求翻译 Agent"""
     
-    def __init__(self, max_rounds: int = 3):
+    def __init__(self, max_rounds: int = 10):
         self.state_machine = StateMachine(max_rounds=max_rounds)
         self.clarifier = Clarifier()
         self.plan_card_generator = PlanCardGenerator()

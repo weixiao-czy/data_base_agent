@@ -22,7 +22,7 @@ class AgentState(Enum):
 class StateMachine:
     """状态机：管理对话状态与轮次控制"""
     
-    def __init__(self, max_rounds: int = 3):
+    def __init__(self, max_rounds: int = 10):
         self.current_state = AgentState.IDLE
         self.max_rounds = max_rounds
         self.current_round = 0
