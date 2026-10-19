@@ -64,8 +64,8 @@ class LiteratureSearchAgent:
         print("="*50)
         print("文献检索需求翻译 Agent")
         print("="*50)
-        print("\n我会帮你把模糊的研究兴趣翻译成可检索的关键词。")
-        print("最多需要 3 轮对话，你也可以随时说「跳过」直接生成检索计划。")
+        print(f"\n我会帮你把模糊的研究兴趣翻译成可检索的关键词。")
+        print(f"最多需要 {self.state_machine.max_rounds} 轮对话，你也可以随时说「跳过」直接生成检索计划。")
         print("\n请描述你的研究兴趣（输入 'quit' 退出）：")
         
         while True:
@@ -301,11 +301,16 @@ class LiteratureSearchAgent:
         """处理结果展示状态"""
         if hasattr(self, '_search_results') and self._search_results:
             print(render_results(self._search_results))
+            
+            # 自动保存检索结果为 txt 文件
+            output_path = self._export_search_results_to_txt(self._search_results)
+            if output_path:
+                print(f"\n[已保存] 检索结果已导出到: {output_path}")
         else:
             print("\n可以使用需求翻译卡中的查询手动检索")
         
         print("\n接下来你想：")
-        print("1. 导出结果")
+        print("1. 导出结果到 txt")
         print("2. 细化检索")
         print("3. 结束")
         
@@ -315,7 +320,12 @@ class LiteratureSearchAgent:
             print("再见！")
             sys.exit(0)
         elif choice == '1':
-            print("导出功能待实现")
+            if hasattr(self, '_search_results') and self._search_results:
+                output_path = self._export_search_results_to_txt(self._search_results)
+                if output_path:
+                    print(f"\n[已保存] 检索结果已导出到: {output_path}")
+            else:
+                print("\n没有可导出的检索结果")
         elif choice == '2':
             # 重新开始
             self.state_machine.reset()
@@ -390,6 +400,86 @@ class LiteratureSearchAgent:
                 for action in plan_card.next_actions:
                     f.write(f"  - {action}\n")
                 f.write("\n")
+                
+                f.write("="*60 + "\n")
+            
+            return output_path
+            
+        except Exception as e:
+            print(f"\n[错误] 导出失败: {e}")
+            return ""
+    
+    def _export_search_results_to_txt(self, results: list) -> str:
+        """
+        将检索结果导出为 txt 文件
+        
+        Args:
+            results: 论文列表
+            
+        Returns:
+            输出文件路径，失败返回空字符串
+        """
+        import os
+        from datetime import datetime
+        
+        try:
+            # 创建 output 目录
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "output")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"search_results_{timestamp}.txt"
+            output_path = os.path.join(output_dir, filename)
+            
+            # 写入文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write("="*60 + "\n")
+                f.write("检索结果\n")
+                f.write("="*60 + "\n\n")
+                
+                f.write(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"检索结果数量: {len(results)} 篇\n\n")
+                
+                # 如果有需求翻译卡，也写入查询信息
+                if self.state_machine.plan_card:
+                    f.write("检索查询:\n")
+                    for query in self.state_machine.plan_card.search_plan['suggested_queries']:
+                        f.write(f"  - {query}\n")
+                    f.write("\n")
+                
+                f.write("-"*60 + "\n\n")
+                
+                for i, paper in enumerate(results, 1):
+                    f.write(f"[{i}] {paper.get('title', '无标题')}\n\n")
+                    
+                    authors = paper.get('authors', [])
+                    if authors:
+                        f.write(f"作者: {', '.join(authors)}\n")
+                    
+                    year = paper.get('year', '')
+                    if year:
+                        f.write(f"年份: {year}\n")
+                    
+                    venue = paper.get('venue', '')
+                    if venue:
+                        f.write(f"发表: {venue}\n")
+                    
+                    doi = paper.get('doi', '')
+                    if doi:
+                        f.write(f"DOI: {doi}\n")
+                    
+                    url = paper.get('url', '')
+                    if url:
+                        f.write(f"链接: {url}\n")
+                    
+                    f.write(f"\n摘要: {paper.get('abstract', '无摘要')}\n")
+                    
+                    bibtex = paper.get('bibtex', '')
+                    if bibtex:
+                        f.write(f"\nBibTeX:\n{bibtex}\n")
+                    
+                    f.write("\n" + "-"*60 + "\n\n")
                 
                 f.write("="*60 + "\n")
             
