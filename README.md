@@ -156,9 +156,14 @@ MIT License
 
 ---
 
-## 👥 团队
+##  团队
 
 上海交通大学图书馆文献检索辅助项目
+
+### 贡献者
+
+- [weixiao-czy](https://github.com/weixiao-czy) — 项目负责人
+- [SunSean-1145](https://github.com/SunSean-1145) — 团队成员
 
 ---
 
