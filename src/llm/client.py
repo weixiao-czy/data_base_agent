@@ -49,10 +49,12 @@ class OpenAIClient(LLMClient):
             raise ValueError("请提供 API Key 或设置环境变量 OPENAI_API_KEY（可以在 .env 文件中配置）")
         
         try:
-            import openai
-            openai.api_key = self.api_key
+            from openai import OpenAI
+            # 使用新的 API 接口
+            client_kwargs = {"api_key": self.api_key}
             if self.base_url:
-                openai.api_base = self.base_url
+                client_kwargs["base_url"] = self.base_url
+            self.client = OpenAI(**client_kwargs)
         except ImportError:
             raise ImportError("请先安装 openai 包：pip install openai")
     
@@ -67,10 +69,8 @@ class OpenAIClient(LLMClient):
         Returns:
             模型回复
         """
-        import openai
-        
         try:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 **kwargs
