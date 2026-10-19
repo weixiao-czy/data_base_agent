@@ -257,10 +257,15 @@ class LiteratureSearchAgent:
         
         print("\n正在检索...")
         
-        # 使用第一个建议查询
+        # 使用需求翻译卡中的查询
         queries = self.state_machine.plan_card.search_plan['suggested_queries']
+        
         if queries:
-            results = self.search_provider.search(queries[0], limit=10)
+            # 使用第一个查询进行检索
+            primary_query = queries[0]
+            print(f"使用查询: {primary_query}")
+            
+            results = self.search_provider.search(primary_query, limit=10)
             
             if results:
                 print(f"\n找到 {len(results)} 篇相关论文")
@@ -268,8 +273,16 @@ class LiteratureSearchAgent:
                 # 保存结果供展示
                 self._search_results = results
             else:
-                print("\n未找到相关论文，建议放宽关键词")
+                print("\n未找到相关论文")
+                print("建议：")
+                print("  1. 放宽关键词")
+                print("  2. 尝试其他查询:")
+                for q in queries[1:]:
+                    print(f"     - {q}")
                 self._search_results = []
+        else:
+            print("\n没有可用的检索查询")
+            self._search_results = []
         
         self.state_machine.transition(AgentState.PRESENT_RESULTS)
     

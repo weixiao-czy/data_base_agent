@@ -5,6 +5,8 @@
 scimaster:
   api_key: ""  # 通过环境变量 SCIMASTER_API_KEY 设置更安全
   base_url: "https://api.scimaster.cn"
+  search_limit: 10  # 默认检索结果数量
+  timeout: 30  # 检索超时时间（秒）
 
 # OpenAI API 配置
 openai:
