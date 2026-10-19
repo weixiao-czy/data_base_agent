@@ -1,5 +1,5 @@
 """
-主窗口 — 现代 IDE 风格（无边框 + 自定义顶栏 + 图标侧边栏）
+主窗口 — 专业现代风格
 """
 
 import os
@@ -9,9 +9,8 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QListWidget, QListWidgetItem,
     QTextEdit, QFrame, QFileDialog, QMessageBox,
-    QSizePolicy,
 )
-from PyQt6.QtCore import Qt, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QMouseEvent
 
 from .styles import COLORS, GLOBAL_QSS, TITLEBAR_QSS, SIDEBAR_QSS, CHAT_QSS
@@ -19,74 +18,61 @@ from .chat_widget import ChatDisplay
 from .agent_worker import AgentWorker
 from .settings_dialog import SettingsDialog, load_config
 
-# 对话历史存储路径
 _HISTORY_DIR = os.path.join(os.path.expanduser("~"), ".databaseagent", "conversations")
 
 
 class TitleBar(QFrame):
-    """自定义顶栏（无边框窗口的标题栏）"""
+    """自定义顶栏"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("titlebar")
-        self.setFixedHeight(36)
+        self.setFixedHeight(40)
         self._parent_window = parent
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 左侧：窗口控制按钮（模拟）
-        self.min_btn = QPushButton("—")
-        self.min_btn.setObjectName("titlebar_btn")
-        self.min_btn.setFixedSize(36, 36)
-        self.min_btn.clicked.connect(self._minimize)
-        layout.addWidget(self.min_btn)
-
-        self.max_btn = QPushButton("□")
-        self.max_btn.setObjectName("titlebar_btn")
-        self.max_btn.setFixedSize(36, 36)
-        self.max_btn.clicked.connect(self._maximize)
-        layout.addWidget(self.max_btn)
-
-        self.close_btn = QPushButton("✕")
-        self.close_btn.setObjectName("titlebar_btn titlebar_close")
-        self.close_btn.setFixedSize(36, 36)
-        self.close_btn.clicked.connect(self._close)
-        layout.addWidget(self.close_btn)
-
-        layout.addSpacing(12)
-
-        # 中间：标题
+        # 标题（左侧）
         self.title_label = QLabel("文献检索需求翻译 Agent")
         self.title_label.setObjectName("titlebar_title")
-        layout.addWidget(self.title_label)
+        layout.addWidget(self.title_label, 1)
 
         layout.addStretch()
 
-    def _minimize(self):
-        if self._parent_window:
-            self._parent_window.showMinimized()
+        # 窗口控制按钮（右侧）
+        btn_style = "background: transparent; border: none; color: #323130; font-size: 10px; min-width: 46px; max-width: 46px; min-height: 40px; max-height: 40px;"
 
-    def _maximize(self):
+        self.min_btn = QPushButton("—")
+        self.min_btn.setStyleSheet(btn_style)
+        self.min_btn.clicked.connect(lambda: self._parent_window.showMinimized() if self._parent_window else None)
+        layout.addWidget(self.min_btn)
+
+        self.max_btn = QPushButton("□")
+        self.max_btn.setStyleSheet(btn_style)
+        self.max_btn.clicked.connect(self._toggle_maximize)
+        layout.addWidget(self.max_btn)
+
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setStyleSheet(btn_style + " #close_btn:hover {{ background: #D13438; color: white; }}")
+        self.close_btn.setObjectName("close_btn")
+        self.close_btn.clicked.connect(lambda: self._parent_window.close() if self._parent_window else None)
+        layout.addWidget(self.close_btn)
+
+    def _toggle_maximize(self):
         if self._parent_window:
             if self._parent_window.isMaximized():
                 self._parent_window.showNormal()
             else:
                 self._parent_window.showMaximized()
 
-    def _close(self):
-        if self._parent_window:
-            self._parent_window.close()
-
     def mouseDoubleClickEvent(self, event):
-        """双击顶栏最大化/还原"""
-        self._maximize()
+        self._toggle_maximize()
 
     def mousePressEvent(self, event):
-        """拖拽移动窗口"""
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint()
 
@@ -99,16 +85,16 @@ class TitleBar(QFrame):
 
 
 class Sidebar(QWidget):
-    """现代 IDE 风格侧边栏"""
+    """侧边栏"""
 
-    new_chat_clicked = pyqtSignal()
-    conversation_selected = pyqtSignal(str)  # conv_id
-    settings_clicked = pyqtSignal()
+    new_chat_clicked = None
+    conversation_selected = None
+    settings_clicked = None
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("sidebar")
-        self.setFixedWidth(240)
+        self.setFixedWidth(260)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -116,31 +102,27 @@ class Sidebar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 顶部：模式按钮
-        top = QFrame()
-        top.setObjectName("sidebar_top")
-        top_layout = QVBoxLayout(top)
-        top_layout.setContentsMargins(8, 8, 8, 8)
+        # 头部：新建对话按钮
+        header = QFrame()
+        header.setObjectName("sidebar_header")
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(12, 16, 12, 12)
 
-        mode_btn = QPushButton("💻 编程")
-        mode_btn.setObjectName("sidebar_mode_btn")
-        top_layout.addWidget(mode_btn)
+        new_btn = QPushButton("+ 新建对话")
+        new_btn.setObjectName("new_chat_btn")
+        new_btn.clicked.connect(self._on_new_chat)
+        header_layout.addWidget(new_btn)
 
-        layout.addWidget(top)
+        layout.addWidget(header)
 
         # 导航区
         nav = QListWidget()
-        nav.setObjectName("sidebar_nav")
-        nav.setMaximumHeight(200)
+        nav.setObjectName("sidebar_sections")
+        nav.setMaximumHeight(180)
 
-        nav_items = [
-            ("✨ 新的任务", "new"),
-            ("📁 项目", "projects"),
-            ("💬 讨论", "discussions"),
-            ("🔍 搜索", "search"),
-        ]
-        for text, _ in nav_items:
-            item = QListWidgetItem(text)
+        nav_items = ["✨ 新的任务", "📁 项目", "💬 讨论", "🔍 搜索"]
+        for item_text in nav_items:
+            item = QListWidgetItem(item_text)
             nav.addItem(item)
 
         nav.currentRowChanged.connect(self._on_nav_changed)
@@ -148,52 +130,59 @@ class Sidebar(QWidget):
 
         # 工作区标题
         workspace_title = QLabel("工作区")
-        workspace_title.setObjectName("sidebar_section_title")
+        workspace_title.setObjectName("section_title")
         layout.addWidget(workspace_title)
 
         # 对话列表
         self.conv_list = QListWidget()
-        self.conv_list.setObjectName("sidebar_conv_list")
+        self.conv_list.setObjectName("conv_list")
         self.conv_list.currentRowChanged.connect(self._on_conv_selected)
         layout.addWidget(self.conv_list, 1)
 
         # 最近任务标题
         recent_title = QLabel("最近任务")
-        recent_title.setObjectName("sidebar_section_title")
+        recent_title.setObjectName("section_title")
         layout.addWidget(recent_title)
 
-        # 最近任务列表（占位）
+        # 最近任务列表
         recent_list = QListWidget()
-        recent_list.setObjectName("sidebar_conv_list")
-        recent_list.setMaximumHeight(80)
+        recent_list.setObjectName("conv_list")
+        recent_list.setMaximumHeight(60)
         layout.addWidget(recent_list)
 
-        # 底部：设置按钮
-        bottom = QFrame()
-        bottom.setObjectName("sidebar_bottom")
-        bottom_layout = QVBoxLayout(bottom)
-        bottom_layout.setContentsMargins(8, 8, 8, 8)
+        # 底部：设置
+        footer = QFrame()
+        footer.setObjectName("sidebar_footer")
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(12, 8, 12, 8)
 
-        settings_btn = QPushButton("️ 设置")
-        settings_btn.setObjectName("sidebar_settings_btn")
-        settings_btn.clicked.connect(self.settings_clicked.emit)
-        bottom_layout.addWidget(settings_btn)
+        settings_btn = QPushButton("⚙ 设置")
+        settings_btn.setObjectName("settings_btn")
+        settings_btn.clicked.connect(self._on_settings)
+        footer_layout.addWidget(settings_btn)
 
-        layout.addWidget(bottom)
+        layout.addWidget(footer)
+
+    def _on_new_chat(self):
+        if self.new_chat_clicked:
+            self.new_chat_clicked()
 
     def _on_nav_changed(self, row):
-        if row == 0:  # 新的任务
-            self.new_chat_clicked.emit()
+        if row == 0 and self.new_chat_clicked:
+            self.new_chat_clicked()
 
     def _on_conv_selected(self, row):
-        if row >= 0:
+        if row >= 0 and self.conversation_selected:
             item = self.conv_list.item(row)
             conv_id = item.data(Qt.ItemDataRole.UserRole)
             if conv_id:
-                self.conversation_selected.emit(conv_id)
+                self.conversation_selected(conv_id)
+
+    def _on_settings(self):
+        if self.settings_clicked:
+            self.settings_clicked()
 
     def update_conversations(self, conversations: dict, current_id: str):
-        """更新对话列表"""
         self.conv_list.clear()
         for conv_id, conv in sorted(
             conversations.items(), key=lambda x: x[1].get("timestamp", ""), reverse=True
@@ -206,18 +195,14 @@ class Sidebar(QWidget):
 
 
 class MainWindow(QMainWindow):
-    """主窗口 — 现代 IDE 风格"""
+    """主窗口"""
 
     def __init__(self):
         super().__init__()
-        # 无边框窗口
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.Window
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setWindowTitle("文献检索需求翻译 Agent")
-        self.setMinimumSize(1000, 700)
-        self.resize(1200, 800)
+        self.setMinimumSize(1100, 750)
+        self.resize(1280, 850)
 
         self.setStyleSheet(GLOBAL_QSS + TITLEBAR_QSS + SIDEBAR_QSS + CHAT_QSS)
 
@@ -238,21 +223,22 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 自定义顶栏
+        # 顶栏
         self.titlebar = TitleBar(self)
         main_layout.addWidget(self.titlebar)
 
         # 内容区
         content = QWidget()
+        content.setObjectName("chat_container")
         content_layout = QHBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
         # 侧边栏
         self.sidebar = Sidebar()
-        self.sidebar.new_chat_clicked.connect(self._new_conversation)
-        self.sidebar.conversation_selected.connect(self._switch_conversation)
-        self.sidebar.settings_clicked.connect(self._open_settings)
+        self.sidebar.new_chat_clicked = self._new_conversation
+        self.sidebar.conversation_selected = self._switch_conversation
+        self.sidebar.settings_clicked = self._open_settings
         content_layout.addWidget(self.sidebar)
 
         # 右侧聊天区
@@ -265,14 +251,14 @@ class MainWindow(QMainWindow):
         toolbar = QFrame()
         toolbar.setObjectName("toolbar")
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 6, 12, 6)
+        toolbar_layout.setContentsMargins(16, 8, 16, 8)
 
         self.export_btn = QPushButton("📥 导出结果")
         self.export_btn.setObjectName("export_btn")
         self.export_btn.clicked.connect(self._export_results)
         toolbar_layout.addWidget(self.export_btn)
 
-        self.export_card_btn = QPushButton("📋 导出需求翻译卡")
+        self.export_card_btn = QPushButton(" 导出需求翻译卡")
         self.export_card_btn.setObjectName("export_btn")
         self.export_card_btn.clicked.connect(self._export_plan_card)
         toolbar_layout.addWidget(self.export_card_btn)
@@ -282,13 +268,13 @@ class MainWindow(QMainWindow):
 
         # 聊天显示
         self.chat_display = ChatDisplay()
-        chat_layout.addWidget(self.chat_display)
+        chat_layout.addWidget(self.chat_display, 1)
 
-        # 输入区域
+        # 输入区
         input_area = QFrame()
         input_area.setObjectName("input_area")
         input_layout = QHBoxLayout(input_area)
-        input_layout.setContentsMargins(12, 10, 12, 10)
+        input_layout.setContentsMargins(16, 12, 16, 12)
 
         self.message_input = QTextEdit()
         self.message_input.setObjectName("message_input")
@@ -308,7 +294,6 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(content, 1)
 
     def _new_conversation(self):
-        """新建对话"""
         conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self._current_conv_id = conv_id
         self._conversations[conv_id] = {
@@ -329,7 +314,6 @@ class MainWindow(QMainWindow):
         self._init_worker()
 
     def _init_worker(self):
-        """初始化 Agent 工作线程"""
         if self._worker:
             self._worker.quit()
             self._worker.wait()
@@ -342,7 +326,6 @@ class MainWindow(QMainWindow):
         self._worker.finished.connect(self._on_finished)
 
     def _send_message(self):
-        """发送消息"""
         text = self.message_input.toPlainText().strip()
         if not text:
             return
