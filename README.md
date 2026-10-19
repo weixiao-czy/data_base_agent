@@ -184,11 +184,13 @@ graph LR
 
 欢迎提交 Issue 和 Pull Request！
 
+如有任何 BUG 或改进建议，欢迎通过 Issue 反馈，或直接联系：<harry20080428@sjtu.edu.cn>
+
 ---
 
 ## 📄 许可证
 
-MIT License
+本项目基于 [MIT License](LICENSE) 开源。
 
 ---
 
