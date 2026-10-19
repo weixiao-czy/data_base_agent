@@ -10,16 +10,18 @@ import sys
 
 def build():
     project_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.join(project_dir, "src")
     spec_file = os.path.join(project_dir, "databaseagent.spec")
 
     spec_content = f'''
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
 a = Analysis(
     ['gui_launcher.py'],
-    pathex=['{project_dir}'],
+    pathex=[r'{project_dir}', r'{src_dir}'],
     binaries=[],
     datas=[
         ('src/prompts', 'prompts'),
@@ -49,7 +51,7 @@ a = Analysis(
         'mcp',
         'mcp.client',
         'mcp.client.stdio',
-    ],
+    ] + collect_submodules('mcp'),
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],

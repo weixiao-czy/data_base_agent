@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QPainter, QColor
 
 from .styles import COLORS
 
@@ -97,38 +98,64 @@ class MessageRow(_CenteredColumn):
             self.column_layout.addLayout(row)
 
 
+class DotGrid(QWidget):
+    """2×3 点阵加载动画"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(20, 14)
+        self._phase = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(280)
+
+    def _tick(self):
+        self._phase = (self._phase + 1) % 6
+        self.update()
+
+    def stop(self):
+        self._timer.stop()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        p.setPen(Qt.PenStyle.NoPen)
+        base = QColor(COLORS["text_tertiary"])
+        i = 0
+        for r in range(2):
+            for c in range(3):
+                d = (self._phase - i) % 6
+                alpha = 235 if d == 0 else (140 if d == 1 else 70)
+                color = QColor(base)
+                color.setAlpha(alpha)
+                p.setBrush(color)
+                p.drawEllipse(2 + c * 7, 2 + r * 7, 4, 4)
+                i += 1
+
+
 class ThinkingIndicator(_CenteredColumn):
-    """Agent 正在处理的动画提示"""
+    """Agent 正在处理时的等待提示"""
+
+    DEFAULT_TEXT = "Waiting for reply…"
 
     def __init__(self, parent=None):
         super().__init__(parent)
         row = QHBoxLayout()
-        row.setContentsMargins(0, 6, 0, 6)
-        row.setSpacing(12)
-        row.addWidget(Avatar("文", "avatar_agent"), alignment=Qt.AlignmentFlag.AlignTop)
-        self.label = QLabel("正在思考")
+        row.setContentsMargins(0, 8, 0, 8)
+        row.setSpacing(10)
+        self.dots = DotGrid()
+        row.addWidget(self.dots, alignment=Qt.AlignmentFlag.AlignTop)
+        self.label = QLabel(self.DEFAULT_TEXT)
         self.label.setObjectName("thinking_label")
         row.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignTop)
         row.addStretch(1)
         self.column_layout.addLayout(row)
 
-        self._step = 0
-        self._base = "正在思考"
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._animate)
-        self._timer.start(400)
-
     def set_status(self, text: str):
-        self._base = text or "正在思考"
-        self._step = 0
-        self.label.setText(self._base)
-
-    def _animate(self):
-        self._step = (self._step + 1) % 4
-        self.label.setText(self._base + " " + "·" * (self._step + 1))
+        self.label.setText(text or self.DEFAULT_TEXT)
 
     def stop(self):
-        self._timer.stop()
+        self.dots.stop()
 
 
 class PlanCardWidget(_CenteredColumn):

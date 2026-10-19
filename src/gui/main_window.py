@@ -538,7 +538,7 @@ class MainWindow(QMainWindow):
     def _set_busy(self, busy: bool):
         self._busy = busy
         self.send_btn.setEnabled(not busy)
-        self.header_status.setText("处理中…" if busy else "就绪")
+        self.header_status.setText("Waiting for reply…" if busy else "就绪")
 
     def _on_status(self, text: str):
         self.chat_display.show_thinking(text)
