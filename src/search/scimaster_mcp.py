@@ -22,7 +22,7 @@ class SciMasterMCPProvider(SearchProvider):
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.api_key = api_key or os.getenv("SCIMASTER_API_KEY")
-        self.base_url = base_url or os.getenv("SCIMASTER_BASE_URL", "https://api.scimaster.cn")
+        self.base_url = base_url or os.getenv("SCIMASTER_BASE_URL", "https://scimaster.bohrium.com")
         self.search_limit = int(os.getenv("SEARCH_DEFAULT_LIMIT", "10"))
         self.timeout = int(os.getenv("SEARCH_TIMEOUT", "30"))
 
