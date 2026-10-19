@@ -7,6 +7,7 @@ import os
 from agent.state_machine import StateMachine, AgentState
 from agent.clarifier import Clarifier
 from agent.plan_card import PlanCardGenerator
+from search.real_search import RealSearchProvider
 from search.scimaster_mcp import SciMasterMCPProvider
 from search.scimaster_cli import SciMasterCLIProvider
 from presentation.render_results import render_results, render_plan_card
@@ -45,17 +46,28 @@ class LiteratureSearchAgent:
         self.search_provider = self._init_search_provider()
     
     def _init_search_provider(self):
-        """初始化检索提供者"""
+        """初始化检索提供者
+
+        优先级：
+        1. Crossref + arXiv 真实检索（免费、无需 Key，当前默认）
+        2. SciMaster MCP（真正的 MCP 调用尚未实现，实现后可提到首位）
+        3. SciMaster CLI 降级
+        """
+        real_provider = RealSearchProvider()
+        if real_provider.is_available():
+            print("使用真实检索模式（Crossref + arXiv，免费无需 Key）")
+            return real_provider
+
         mcp_provider = SciMasterMCPProvider()
         if mcp_provider.is_available():
-            print("使用 MCP 模式")
+            print("使用 SciMaster MCP 模式")
             return mcp_provider
-        
+
         cli_provider = SciMasterCLIProvider()
         if cli_provider.is_available():
             print("使用 CLI 降级模式")
             return cli_provider
-        
+
         print("警告: 检索服务不可用，将只生成检索计划")
         return None
     

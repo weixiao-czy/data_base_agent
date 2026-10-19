@@ -18,7 +18,7 @@
 
 **本 Agent 来帮你！** 🚀
 
-通过最多 10 轮简单的对话，帮你把模糊的研究兴趣翻译成精准的检索计划，并调用 SciMaster 检索相关文献。
+通过最多 10 轮简单的对话，帮你把模糊的研究兴趣翻译成精准的检索计划，并调用 Crossref / arXiv 公开学术接口检索真实文献。
 
 ---
 
@@ -37,9 +37,9 @@
 - ✅ 不确定性标注
 
 ### 🔍 文献检索
-- 集成 SciMaster/PaSaMaster MCP 接口
-- 支持 CLI 降级方案
-- 返回论文元数据、摘要、URL、BibTeX
+- 接入 Crossref + arXiv 公开学术 API，真实文献、免费、无需 API Key
+- 返回论文元数据、摘要、URL、DOI、BibTeX
+- 预留 SciMaster/PaSaMaster MCP 与 CLI 降级接口（未来启用）
 
 ---
 
@@ -54,8 +54,9 @@ databaseagent/
 │   │   └── plan_card.py       # 需求翻译卡生成
 │   ├── 🔍 search/         # 检索功能
 │   │   ├── provider.py        # 检索接口抽象
-│   │   ├── scimaster_mcp.py   # MCP 调用
-│   │   └── scimaster_cli.py   # CLI 降级
+│   │   ├── real_search.py     # Crossref + arXiv 真实检索（默认）
+│   │   ├── scimaster_mcp.py   # SciMaster MCP（预留）
+│   │   └── scimaster_cli.py   # SciMaster CLI 降级（预留）
 │   ├── 🎨 presentation/   # 结果展示
 │   │   └── render_results.py  # 格式化输出
 │   ├── 📝 prompts/        # 提示词模板
@@ -75,15 +76,11 @@ databaseagent/
 pip install -r requirements.txt
 ```
 
-### 2️⃣ 配置 SciMaster（可选）
+### 2️⃣ 检索服务（开箱即用，无需配置）
 
-```bash
-# 安装 SciMaster CLI
-npm install -g scimaster-cli
+默认的 Crossref + arXiv 检索**免费、无需任何 API Key**，联网即可使用。
 
-# 初始化配置
-sci init
-```
+> 可选：未来若启用 SciMaster，需要 `npm install -g scimaster-cli` 并 `sci init`。
 
 ### 3️⃣ 运行 Agent
 
@@ -142,7 +139,7 @@ graph LR
 
 - **Python 3.8+** - 主要开发语言
 - **状态机模式** - 控制对话流程
-- **MCP 协议** - 调用 SciMaster 检索
+- **Crossref / arXiv API** - 真实文献检索（免费、无需 Key）
 - **PyYAML** - 需求翻译卡序列化
 
 ---

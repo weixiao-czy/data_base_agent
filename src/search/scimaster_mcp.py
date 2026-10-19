@@ -53,41 +53,25 @@ class SciMasterMCPProvider(SearchProvider):
         if limit is None:
             limit = self.search_limit
         
-        if not self.api_key:
-            print("警告: SciMaster API Key 未配置，返回模拟数据")
-            return self._mock_search(query, limit)
+        if not self.is_available():
+            print("[SciMaster] API Key 未配置或为占位符，跳过该来源")
+            return []
         
         try:
-            # TODO: 实现真正的 MCP 调用
-            # 这里使用模拟数据，实际应该调用 MCP 工具
-            return self._mock_search(query, limit)
+            # TODO: 实现真正的 MCP 调用（集成 MCP SDK / scimaster-cli）
+            # 在真正实现之前，本来源不返回任何结果，避免用 mock 数据冒充真实检索。
+            print("[SciMaster] MCP 调用尚未实现，跳过该来源（改用 Crossref/arXiv）")
+            return []
             
         except Exception as e:
             print(f"SciMaster MCP 调用失败: {e}")
             return []
     
     def is_available(self) -> bool:
-        """检查 MCP 服务是否可用"""
-        # TODO: 实现真正的可用性检查
-        # 实际项目中应该检查 MCP 服务是否启动
+        """检查 MCP 服务是否可用（占位符 Key 视为不可用）"""
+        if not self.api_key:
+            return False
+        placeholder = "your-scimaster-api-key-here"
+        if self.api_key.strip().lower() == placeholder:
+            return False
         return bool(self.api_key)
-    
-    def _mock_search(self, query: str, limit: int) -> List[Dict[str, Any]]:
-        """模拟检索结果（用于测试）"""
-        # 生成模拟的论文数据
-        mock_papers = []
-        
-        for i in range(min(limit, 5)):
-            paper = {
-                "title": f"论文标题 {i+1}: {query} 相关研究",
-                "abstract": f"这是关于 {query} 的研究摘要。本文探讨了相关领域的最新进展...",
-                "authors": [f"作者{i+1}_1", f"作者{i+1}_2"],
-                "url": f"https://example.com/paper/{i+1}",
-                "doi": f"10.1234/mock.{i+1}",
-                "year": 2024 - i,
-                "venue": f"会议/期刊 {i+1}",
-                "bibtex": f"@article{{paper{i+1}, title={{{query} 研究}}, year={2024-i}}}"
-            }
-            mock_papers.append(paper)
-        
-        return mock_papers
