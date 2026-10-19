@@ -221,10 +221,16 @@ class LiteratureSearchAgent:
         # 展示需求翻译卡
         print(render_plan_card(plan_card.to_dict()))
         
+        # 自动保存为 txt 文件
+        output_path = self._export_plan_card_to_txt(plan_card)
+        if output_path:
+            print(f"\n[已保存] 需求翻译卡已导出到: {output_path}")
+        
         print("\n这个计划看起来如何？")
         print("1. 确认，开始检索")
         print("2. 需要调整")
         print("3. 重新生成")
+        print("4. 重新导出 txt")
         
         self.state_machine.transition(AgentState.USER_CONFIRM)
     
@@ -242,6 +248,11 @@ class LiteratureSearchAgent:
             self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
         elif choice in ['3', '重新生成']:
             self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
+        elif choice in ['4', '导出']:
+            output_path = self._export_plan_card_to_txt(self.state_machine.plan_card)
+            if output_path:
+                print(f"\n[已保存] 需求翻译卡已导出到: {output_path}")
+            # 继续等待用户选择
         else:
             print("无效选择，默认开始检索")
             self.state_machine.transition(AgentState.CALL_SEARCH)
@@ -317,6 +328,76 @@ class LiteratureSearchAgent:
         """处理降级状态"""
         print("\n生成宽泛检索计划...")
         self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
+    
+    def _export_plan_card_to_txt(self, plan_card) -> str:
+        """
+        将需求翻译卡导出为 txt 文件
+        
+        Args:
+            plan_card: PlanCard 实例
+            
+        Returns:
+            输出文件路径，失败返回空字符串
+        """
+        import os
+        from datetime import datetime
+        
+        try:
+            # 创建 output 目录
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "output")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"plan_card_{timestamp}.txt"
+            output_path = os.path.join(output_dir, filename)
+            
+            # 写入文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write("="*60 + "\n")
+                f.write("需求翻译卡\n")
+                f.write("="*60 + "\n\n")
+                
+                f.write(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                
+                f.write(f"研究兴趣: {plan_card.research_interest}\n")
+                f.write(f"解读问题: {plan_card.interpreted_question}\n")
+                f.write(f"研究类型: {plan_card.research_intent_type}\n\n")
+                
+                f.write("关键维度:\n")
+                for dim in plan_card.key_dimensions:
+                    f.write(f"  - {dim}\n")
+                f.write("\n")
+                
+                f.write("建议关键词:\n")
+                f.write(f"  主要: {', '.join(plan_card.suggested_keywords['primary'])}\n")
+                f.write(f"  变体: {', '.join(plan_card.suggested_keywords['variants'])}\n")
+                f.write(f"  相邻领域: {', '.join(plan_card.suggested_keywords['adjacent_fields'])}\n\n")
+                
+                f.write("不确定性:\n")
+                for unc in plan_card.uncertainties:
+                    f.write(f"  - {unc}\n")
+                f.write("\n")
+                
+                f.write("检索计划:\n")
+                f.write(f"  模式: {plan_card.search_plan['mode']}\n")
+                f.write("  建议查询:\n")
+                for query in plan_card.search_plan['suggested_queries']:
+                    f.write(f"    - {query}\n")
+                f.write("\n")
+                
+                f.write("下一步行动:\n")
+                for action in plan_card.next_actions:
+                    f.write(f"  - {action}\n")
+                f.write("\n")
+                
+                f.write("="*60 + "\n")
+            
+            return output_path
+            
+        except Exception as e:
+            print(f"\n[错误] 导出失败: {e}")
+            return ""
 
 
 def main():
