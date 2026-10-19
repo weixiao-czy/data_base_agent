@@ -5,6 +5,10 @@ LLM 客户端模块：封装大语言模型调用
 import os
 from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 
 class LLMClient(ABC):
@@ -28,19 +32,19 @@ class LLMClient(ABC):
 class OpenAIClient(LLMClient):
     """OpenAI API 客户端"""
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         初始化 OpenAI 客户端
         
         Args:
             api_key: OpenAI API Key，如果不提供则从环境变量 OPENAI_API_KEY 读取
-            model: 模型名称
+            model: 模型名称，如果不提供则从环境变量 OPENAI_MODEL 读取，默认为 gpt-3.5-turbo
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.model = model
+        self.model = model or os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
         
         if not self.api_key:
-            raise ValueError("请提供 API Key 或设置环境变量 OPENAI_API_KEY")
+            raise ValueError("请提供 API Key 或设置环境变量 OPENAI_API_KEY（可以在 .env 文件中配置）")
         
         try:
             import openai
