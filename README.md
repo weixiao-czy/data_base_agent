@@ -147,18 +147,6 @@ graph LR
 
 ---
 
-## 📝 开发计划
-
-- [x] 搭建项目结构
-- [x] 实现状态机逻辑
-- [x] 实现澄清对话流程
-- [ ] 集成 LLM（替换规则逻辑）
-- [ ] 完善 SciMaster MCP 调用
-- [ ] 添加 Web UI
-- [ ] 与 sjtu-mcp-server 联动
-
----
-
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
