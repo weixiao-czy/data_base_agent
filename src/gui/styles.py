@@ -207,8 +207,7 @@ SIDEBAR_QSS = f"""
 
 #conv_list::item {{
     background: transparent;
-    color: {COLORS['text_secondary']};
-    padding: 9px 12px;
+    padding: 0px;
     border-radius: 8px;
     margin: 1px 0;
     border: none;
@@ -216,13 +215,34 @@ SIDEBAR_QSS = f"""
 
 #conv_list::item:hover {{
     background-color: {COLORS['bg_hover']};
-    color: {COLORS['text_primary']};
 }}
 
 #conv_list::item:selected {{
     background-color: {COLORS['bg_selected']};
+}}
+
+#conv_row_label {{
+    color: {COLORS['text_secondary']};
+    font-size: 12.5px;
+    background: transparent;
+}}
+
+#conv_row_label[selected="true"] {{
     color: {COLORS['text_primary']};
     font-weight: 600;
+}}
+
+#conv_del_btn {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: {COLORS['text_tertiary']};
+    font-size: 10px;
+}}
+
+#conv_del_btn:hover {{
+    background-color: #F4E0DC;
+    color: {COLORS['error']};
 }}
 
 #sidebar_footer {{

@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QFrame, QFileDialog, QMessageBox,
     QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtCore import Qt, QEvent, QSize
 from PyQt6.QtGui import QColor
 
 from .styles import (
@@ -91,6 +91,45 @@ class TitleBar(QFrame):
             self._drag_pos = event.globalPosition().toPoint()
 
 
+class ConversationRow(QWidget):
+    """对话历史单行：标题 + 悬停删除按钮"""
+
+    def __init__(self, conv_id: str, title: str, on_delete, parent=None):
+        super().__init__(parent)
+        self.conv_id = conv_id
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 0, 6, 0)
+        layout.setSpacing(2)
+
+        self.label = QLabel(title)
+        self.label.setObjectName("conv_row_label")
+        self.label.setToolTip(title)
+        layout.addWidget(self.label, 1)
+
+        self.del_btn = QPushButton("✕")
+        self.del_btn.setObjectName("conv_del_btn")
+        self.del_btn.setFixedSize(22, 22)
+        self.del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.del_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.del_btn.setToolTip("删除对话")
+        self.del_btn.hide()
+        self.del_btn.clicked.connect(lambda: on_delete(conv_id))
+        layout.addWidget(self.del_btn)
+
+    def enterEvent(self, event):
+        self.del_btn.show()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.del_btn.hide()
+        super().leaveEvent(event)
+
+    def set_selected(self, selected: bool):
+        self.label.setProperty("selected", "true" if selected else "false")
+        self.label.style().unpolish(self.label)
+        self.label.style().polish(self.label)
+
+
 class Sidebar(QWidget):
     """侧边栏：新建对话 + 对话历史 + 设置"""
 
@@ -102,6 +141,7 @@ class Sidebar(QWidget):
         self.new_chat_clicked = None
         self.conversation_selected = None
         self.settings_clicked = None
+        self.delete_requested = None
 
         self._setup_ui()
 
@@ -148,6 +188,7 @@ class Sidebar(QWidget):
             self.new_chat_clicked()
 
     def _on_conv_selected(self, row):
+        self._refresh_selection()
         if row >= 0 and self.conversation_selected:
             item = self.conv_list.item(row)
             conv_id = item.data(Qt.ItemDataRole.UserRole)
@@ -158,6 +199,13 @@ class Sidebar(QWidget):
         if self.settings_clicked:
             self.settings_clicked()
 
+    def _refresh_selection(self):
+        for i in range(self.conv_list.count()):
+            item = self.conv_list.item(i)
+            row = self.conv_list.itemWidget(item)
+            if isinstance(row, ConversationRow):
+                row.set_selected(item.isSelected())
+
     def update_conversations(self, conversations: dict, current_id: str):
         self.conv_list.blockSignals(True)
         self.conv_list.clear()
@@ -166,13 +214,22 @@ class Sidebar(QWidget):
             key=lambda x: x[1].get("timestamp", ""),
             reverse=True,
         ):
-            item = QListWidgetItem(conv.get("title", "新对话"))
+            title = conv.get("title", "新对话")
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(0, 34))
             item.setData(Qt.ItemDataRole.UserRole, conv_id)
-            item.setToolTip(conv.get("title", "新对话"))
             self.conv_list.addItem(item)
+            self.conv_list.setItemWidget(
+                item, ConversationRow(conv_id, title, self._on_delete)
+            )
             if conv_id == current_id:
                 self.conv_list.setCurrentItem(item)
+        self._refresh_selection()
         self.conv_list.blockSignals(False)
+
+    def _on_delete(self, conv_id: str):
+        if self.delete_requested:
+            self.delete_requested(conv_id)
 
 
 class MainWindow(QMainWindow):
@@ -220,6 +277,7 @@ class MainWindow(QMainWindow):
         self.sidebar.new_chat_clicked = self._new_conversation
         self.sidebar.conversation_selected = self._switch_conversation
         self.sidebar.settings_clicked = self._open_settings
+        self.sidebar.delete_requested = self._delete_conversation
         cl.addWidget(self.sidebar)
 
         cl.addWidget(self._build_chat_panel(), 1)
@@ -379,6 +437,33 @@ class MainWindow(QMainWindow):
         # 切换对话后重置 Agent（历史对话不支持续聊，从头开始）
         if self._worker:
             self._worker.submit_reset()
+
+    def _delete_conversation(self, conv_id: str):
+        conv = self._conversations.get(conv_id)
+        if not conv:
+            return
+        title = conv.get("title", "新对话")
+        answer = QMessageBox.question(
+            self,
+            "删除对话",
+            f"确定删除「{title}」吗？此操作不可恢复。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._conversations.pop(conv_id, None)
+        try:
+            os.remove(os.path.join(_HISTORY_DIR, f"{conv_id}.json"))
+        except OSError:
+            pass
+
+        if conv_id == self._current_conv_id:
+            self._current_conv_id = None
+            self._new_conversation()
+        else:
+            self.sidebar.update_conversations(self._conversations, self._current_conv_id)
 
     def _load_conversations(self):
         os.makedirs(_HISTORY_DIR, exist_ok=True)
