@@ -1,19 +1,24 @@
 """
-主窗口 — 专业现代风格
+主窗口 — 商业级桌面应用风格
+无边框窗口 + 自定义标题栏 + 侧边栏 + 聊天工作区
 """
 
 import os
 import json
 from datetime import datetime
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QListWidget, QListWidgetItem,
     QTextEdit, QFrame, QFileDialog, QMessageBox,
+    QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QColor
 
-from .styles import COLORS, GLOBAL_QSS, TITLEBAR_QSS, SIDEBAR_QSS, CHAT_QSS
+from .styles import (
+    COLORS, GLOBAL_QSS, TITLEBAR_QSS, SIDEBAR_QSS, CHAT_QSS, MESSAGE_QSS,
+)
 from .chat_widget import ChatDisplay
 from .agent_worker import AgentWorker
 from .settings_dialog import SettingsDialog, load_config
@@ -22,153 +27,124 @@ _HISTORY_DIR = os.path.join(os.path.expanduser("~"), ".databaseagent", "conversa
 
 
 class TitleBar(QFrame):
-    """自定义顶栏"""
+    """自定义标题栏：logo + 标题 + 窗口控制"""
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, window: QMainWindow):
+        super().__init__(window)
         self.setObjectName("titlebar")
-        self.setFixedHeight(40)
-        self._parent_window = parent
+        self.setFixedHeight(44)
+        self._window = window
+        self._drag_pos = None
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(14, 0, 10, 0)
+        layout.setSpacing(10)
 
-        # 标题（左侧）
-        self.title_label = QLabel("文献检索需求翻译 Agent")
-        self.title_label.setObjectName("titlebar_title")
-        layout.addWidget(self.title_label, 1)
+        logo = QLabel("文")
+        logo.setObjectName("titlebar_logo")
+        logo.setFixedSize(20, 20)
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(logo)
 
-        layout.addStretch()
+        title = QLabel("文献检索需求翻译 Agent")
+        title.setObjectName("titlebar_title")
+        layout.addWidget(title)
 
-        # 窗口控制按钮（右侧）
-        btn_style = "background: transparent; border: none; color: #323130; font-size: 10px; min-width: 46px; max-width: 46px; min-height: 40px; max-height: 40px;"
+        layout.addStretch(1)
 
-        self.min_btn = QPushButton("—")
-        self.min_btn.setStyleSheet(btn_style)
-        self.min_btn.clicked.connect(lambda: self._parent_window.showMinimized() if self._parent_window else None)
-        layout.addWidget(self.min_btn)
+        self.min_btn = self._make_win_btn("─", "win_btn", self._window.showMinimized)
+        self.max_btn = self._make_win_btn("□", "win_btn", self._toggle_maximize)
+        self.close_btn = self._make_win_btn("✕", "win_close", self._window.close)
+        for btn in (self.min_btn, self.max_btn, self.close_btn):
+            layout.addWidget(btn)
 
-        self.max_btn = QPushButton("□")
-        self.max_btn.setStyleSheet(btn_style)
-        self.max_btn.clicked.connect(self._toggle_maximize)
-        layout.addWidget(self.max_btn)
-
-        self.close_btn = QPushButton("✕")
-        self.close_btn.setStyleSheet(btn_style + " #close_btn:hover {{ background: #D13438; color: white; }}")
-        self.close_btn.setObjectName("close_btn")
-        self.close_btn.clicked.connect(lambda: self._parent_window.close() if self._parent_window else None)
-        layout.addWidget(self.close_btn)
+    def _make_win_btn(self, text: str, name: str, slot):
+        btn = QPushButton(text)
+        btn.setObjectName(name)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.clicked.connect(slot)
+        return btn
 
     def _toggle_maximize(self):
-        if self._parent_window:
-            if self._parent_window.isMaximized():
-                self._parent_window.showNormal()
-            else:
-                self._parent_window.showMaximized()
+        if self._window.isMaximized():
+            self._window.showNormal()
+        else:
+            self._window.showMaximized()
 
     def mouseDoubleClickEvent(self, event):
-        self._toggle_maximize()
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._toggle_maximize()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint()
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and hasattr(self, '_drag_pos'):
-            if self._parent_window:
-                delta = event.globalPosition().toPoint() - self._drag_pos
-                self._parent_window.move(self._parent_window.pos() + delta)
-                self._drag_pos = event.globalPosition().toPoint()
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
+            if self._window.isMaximized():
+                return
+            delta = event.globalPosition().toPoint() - self._drag_pos
+            self._window.move(self._window.pos() + delta)
+            self._drag_pos = event.globalPosition().toPoint()
 
 
 class Sidebar(QWidget):
-    """侧边栏"""
-
-    new_chat_clicked = None
-    conversation_selected = None
-    settings_clicked = None
+    """侧边栏：新建对话 + 对话历史 + 设置"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("sidebar")
-        self.setFixedWidth(260)
+        self.setFixedWidth(250)
+
+        self.new_chat_clicked = None
+        self.conversation_selected = None
+        self.settings_clicked = None
+
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(12, 12, 12, 10)
         layout.setSpacing(0)
 
-        # 头部：新建对话按钮
-        header = QFrame()
-        header.setObjectName("sidebar_header")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(12, 16, 12, 12)
-
-        new_btn = QPushButton("+ 新建对话")
+        new_btn = QPushButton("＋  新建对话")
         new_btn.setObjectName("new_chat_btn")
+        new_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         new_btn.clicked.connect(self._on_new_chat)
-        header_layout.addWidget(new_btn)
+        layout.addWidget(new_btn)
 
-        layout.addWidget(header)
+        layout.addSpacing(18)
 
-        # 导航区
-        nav = QListWidget()
-        nav.setObjectName("sidebar_sections")
-        nav.setMaximumHeight(180)
+        section = QLabel("对话历史")
+        section.setObjectName("section_title")
+        layout.addWidget(section)
+        layout.addSpacing(6)
 
-        nav_items = ["✨ 新的任务", "📁 项目", "💬 讨论", "🔍 搜索"]
-        for item_text in nav_items:
-            item = QListWidgetItem(item_text)
-            nav.addItem(item)
-
-        nav.currentRowChanged.connect(self._on_nav_changed)
-        layout.addWidget(nav)
-
-        # 工作区标题
-        workspace_title = QLabel("工作区")
-        workspace_title.setObjectName("section_title")
-        layout.addWidget(workspace_title)
-
-        # 对话列表
         self.conv_list = QListWidget()
         self.conv_list.setObjectName("conv_list")
+        self.conv_list.setFrameShape(QFrame.Shape.NoFrame)
+        self.conv_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.conv_list.currentRowChanged.connect(self._on_conv_selected)
         layout.addWidget(self.conv_list, 1)
 
-        # 最近任务标题
-        recent_title = QLabel("最近任务")
-        recent_title.setObjectName("section_title")
-        layout.addWidget(recent_title)
-
-        # 最近任务列表
-        recent_list = QListWidget()
-        recent_list.setObjectName("conv_list")
-        recent_list.setMaximumHeight(60)
-        layout.addWidget(recent_list)
-
-        # 底部：设置
         footer = QFrame()
         footer.setObjectName("sidebar_footer")
-        footer_layout = QVBoxLayout(footer)
-        footer_layout.setContentsMargins(12, 8, 12, 8)
+        fl = QVBoxLayout(footer)
+        fl.setContentsMargins(0, 8, 0, 0)
 
-        settings_btn = QPushButton("⚙ 设置")
-        settings_btn.setObjectName("settings_btn")
+        settings_btn = QPushButton("设置")
+        settings_btn.setObjectName("footer_btn")
+        settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         settings_btn.clicked.connect(self._on_settings)
-        footer_layout.addWidget(settings_btn)
+        fl.addWidget(settings_btn)
 
         layout.addWidget(footer)
 
     def _on_new_chat(self):
         if self.new_chat_clicked:
-            self.new_chat_clicked()
-
-    def _on_nav_changed(self, row):
-        if row == 0 and self.new_chat_clicked:
             self.new_chat_clicked()
 
     def _on_conv_selected(self, row):
@@ -183,15 +159,20 @@ class Sidebar(QWidget):
             self.settings_clicked()
 
     def update_conversations(self, conversations: dict, current_id: str):
+        self.conv_list.blockSignals(True)
         self.conv_list.clear()
         for conv_id, conv in sorted(
-            conversations.items(), key=lambda x: x[1].get("timestamp", ""), reverse=True
+            conversations.items(),
+            key=lambda x: x[1].get("timestamp", ""),
+            reverse=True,
         ):
             item = QListWidgetItem(conv.get("title", "新对话"))
             item.setData(Qt.ItemDataRole.UserRole, conv_id)
+            item.setToolTip(conv.get("title", "新对话"))
             self.conv_list.addItem(item)
             if conv_id == current_id:
                 self.conv_list.setCurrentItem(item)
+        self.conv_list.blockSignals(False)
 
 
 class MainWindow(QMainWindow):
@@ -201,97 +182,161 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setWindowTitle("文献检索需求翻译 Agent")
-        self.setMinimumSize(1100, 750)
-        self.resize(1280, 850)
+        self.setMinimumSize(1024, 680)
+        self.resize(1240, 820)
 
-        self.setStyleSheet(GLOBAL_QSS + TITLEBAR_QSS + SIDEBAR_QSS + CHAT_QSS)
+        self.setStyleSheet(
+            GLOBAL_QSS + TITLEBAR_QSS + SIDEBAR_QSS + CHAT_QSS + MESSAGE_QSS
+        )
 
         self._config = load_config()
         self._conversations = {}
         self._current_conv_id = None
+        self._busy = False
         self._worker = None
 
         self._setup_ui()
         self._load_conversations()
+        self._ensure_worker()
         self._new_conversation()
+
+    # ------------------------------------------------ UI 构建
 
     def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        root.addWidget(TitleBar(self))
 
-        # 顶栏
-        self.titlebar = TitleBar(self)
-        main_layout.addWidget(self.titlebar)
-
-        # 内容区
         content = QWidget()
-        content.setObjectName("chat_container")
-        content_layout = QHBoxLayout(content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
+        cl = QHBoxLayout(content)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
 
-        # 侧边栏
         self.sidebar = Sidebar()
         self.sidebar.new_chat_clicked = self._new_conversation
         self.sidebar.conversation_selected = self._switch_conversation
         self.sidebar.settings_clicked = self._open_settings
-        content_layout.addWidget(self.sidebar)
+        cl.addWidget(self.sidebar)
 
-        # 右侧聊天区
-        chat_panel = QWidget()
-        chat_layout = QVBoxLayout(chat_panel)
-        chat_layout.setContentsMargins(0, 0, 0, 0)
-        chat_layout.setSpacing(0)
+        cl.addWidget(self._build_chat_panel(), 1)
+        root.addWidget(content, 1)
 
-        # 工具栏
-        toolbar = QFrame()
-        toolbar.setObjectName("toolbar")
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(16, 8, 16, 8)
+    def _build_chat_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setObjectName("chat_panel")
+        pl = QVBoxLayout(panel)
+        pl.setContentsMargins(0, 0, 0, 0)
+        pl.setSpacing(0)
 
-        self.export_btn = QPushButton("📥 导出结果")
-        self.export_btn.setObjectName("export_btn")
-        self.export_btn.clicked.connect(self._export_results)
-        toolbar_layout.addWidget(self.export_btn)
+        # 头部：对话标题 + 状态 + 导出
+        header = QFrame()
+        header.setObjectName("chat_header")
+        header.setFixedHeight(50)
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(24, 0, 16, 0)
+        hl.setSpacing(8)
 
-        self.export_card_btn = QPushButton(" 导出需求翻译卡")
-        self.export_card_btn.setObjectName("export_btn")
-        self.export_card_btn.clicked.connect(self._export_plan_card)
-        toolbar_layout.addWidget(self.export_card_btn)
+        self.header_title = QLabel("新对话")
+        self.header_title.setObjectName("chat_header_title")
+        hl.addWidget(self.header_title)
+        hl.addSpacing(12)
 
-        toolbar_layout.addStretch()
-        chat_layout.addWidget(toolbar)
+        self.header_status = QLabel("就绪")
+        self.header_status.setObjectName("chat_header_status")
+        hl.addWidget(self.header_status)
+        hl.addStretch(1)
 
-        # 聊天显示
+        self.export_btn = self._ghost_btn("导出结果", self._export_results)
+        self.export_card_btn = self._ghost_btn("导出翻译卡", self._export_plan_card)
+        hl.addWidget(self.export_btn)
+        hl.addWidget(self.export_card_btn)
+        pl.addWidget(header)
+
+        # 消息区
         self.chat_display = ChatDisplay()
-        chat_layout.addWidget(self.chat_display, 1)
+        self.chat_display.suggestion_clicked.connect(self._on_suggestion)
+        pl.addWidget(self.chat_display, 1)
 
         # 输入区
-        input_area = QFrame()
-        input_area.setObjectName("input_area")
-        input_layout = QHBoxLayout(input_area)
-        input_layout.setContentsMargins(16, 12, 16, 12)
+        dock = QWidget()
+        dock.setObjectName("input_dock")
+        dl = QVBoxLayout(dock)
+        dl.setContentsMargins(24, 8, 24, 14)
+        dl.setSpacing(6)
+
+        card = QFrame()
+        card.setObjectName("input_card")
+        shadow = QGraphicsDropShadowEffect(card)
+        shadow.setBlurRadius(28)
+        shadow.setOffset(0, 3)
+        shadow.setColor(QColor(0, 0, 0, 26))
+        card.setGraphicsEffect(shadow)
+
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(16, 12, 12, 10)
+        cl.setSpacing(8)
 
         self.message_input = QTextEdit()
         self.message_input.setObjectName("message_input")
-        self.message_input.setPlaceholderText("描述你的研究兴趣...")
-        self.message_input.setMaximumHeight(80)
+        self.message_input.setPlaceholderText("描述你的研究兴趣，例如「我想研究扩散模型在图像生成中的最新进展」…")
         self.message_input.setAcceptRichText(False)
-        input_layout.addWidget(self.message_input, 1)
+        self.message_input.setFixedHeight(44)
+        self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.message_input.installEventFilter(self)
+        self.message_input.textChanged.connect(self._auto_resize_input)
+        cl.addWidget(self.message_input)
 
-        send_btn = QPushButton("发送")
-        send_btn.setObjectName("send_btn")
-        send_btn.clicked.connect(self._send_message)
-        input_layout.addWidget(send_btn)
+        bottom = QHBoxLayout()
+        bottom.setSpacing(8)
+        hint = QLabel("Enter 发送 · Shift+Enter 换行 · 输入「跳过」可直接生成计划")
+        hint.setObjectName("input_hint")
+        bottom.addWidget(hint)
+        bottom.addStretch(1)
 
-        chat_layout.addWidget(input_area)
+        self.send_btn = QPushButton("↑")
+        self.send_btn.setObjectName("send_btn")
+        self.send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.send_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.send_btn.setToolTip("发送 (Enter)")
+        self.send_btn.clicked.connect(self._send_message)
+        bottom.addWidget(self.send_btn)
+        cl.addLayout(bottom)
 
-        content_layout.addWidget(chat_panel, 1)
-        main_layout.addWidget(content, 1)
+        dl.addWidget(card)
+        pl.addWidget(dock)
+        return panel
+
+    def _ghost_btn(self, text: str, slot) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setObjectName("ghost_btn")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.clicked.connect(slot)
+        return btn
+
+    def _auto_resize_input(self):
+        doc = self.message_input.document()
+        h = int(doc.size().height()) + 22
+        self.message_input.setFixedHeight(max(44, min(h, 160)))
+
+    # ------------------------------------------------ Worker
+
+    def _ensure_worker(self):
+        if self._worker is None:
+            self._worker = AgentWorker(self._config)
+            self._worker.agent_response.connect(self._on_agent_response)
+            self._worker.plan_card_ready.connect(self._on_plan_card_ready)
+            self._worker.search_results.connect(self._on_search_results)
+            self._worker.status.connect(self._on_status)
+            self._worker.error.connect(self._on_error)
+            self._worker.finished.connect(self._on_finished)
+            self._worker.start()
+
+    # ------------------------------------------------ 对话管理
 
     def _new_conversation(self):
         conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -304,87 +349,36 @@ class MainWindow(QMainWindow):
             "search_results": [],
         }
         self.chat_display.clear()
-        self.chat_display.add_message(
-            "你好！我是文献检索需求翻译 Agent。\n\n"
-            "请描述你的研究兴趣，我会帮你把模糊的想法翻译成精准的检索计划。\n"
-            "最多 10 轮对话，你也可以随时说「跳过」直接生成计划。",
-            is_user=False,
-        )
+        self.chat_display.show_welcome()
+        self.header_title.setText("新对话")
         self.sidebar.update_conversations(self._conversations, self._current_conv_id)
-        self._init_worker()
-
-    def _init_worker(self):
         if self._worker:
-            self._worker.quit()
-            self._worker.wait()
-
-        self._worker = AgentWorker(self._config)
-        self._worker.agent_response.connect(self._on_agent_response)
-        self._worker.plan_card_ready.connect(self._on_plan_card_ready)
-        self._worker.search_results.connect(self._on_search_results)
-        self._worker.error.connect(self._on_error)
-        self._worker.finished.connect(self._on_finished)
-
-    def _send_message(self):
-        text = self.message_input.toPlainText().strip()
-        if not text:
-            return
-
-        self.chat_display.add_message(text, is_user=True)
-        self.message_input.clear()
-
-        conv = self._conversations.get(self._current_conv_id)
-        if conv:
-            conv["messages"].append({"role": "user", "content": text})
-            if conv["title"] == "新对话":
-                conv["title"] = text[:30]
-                self.sidebar.update_conversations(self._conversations, self._current_conv_id)
-
-        self.message_input.setEnabled(False)
-
-        if self._worker is None:
-            self._init_worker()
-        self._worker.process(text)
-
-    def _on_agent_response(self, text: str):
-        self.chat_display.add_message(text, is_user=False)
-        conv = self._conversations.get(self._current_conv_id)
-        if conv:
-            conv["messages"].append({"role": "agent", "content": text})
-
-    def _on_plan_card_ready(self, card_dict: dict):
-        conv = self._conversations.get(self._current_conv_id)
-        if conv:
-            conv["plan_card"] = card_dict
-
-    def _on_search_results(self, results: list):
-        conv = self._conversations.get(self._current_conv_id)
-        if conv:
-            conv["search_results"] = results
-
-    def _on_error(self, error: str):
-        self.chat_display.add_message(f"[错误] {error}", is_user=False)
-
-    def _on_finished(self):
-        self.message_input.setEnabled(True)
+            self._worker.submit_reset()
         self.message_input.setFocus()
 
-    def _open_settings(self):
-        dialog = SettingsDialog(self)
-        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
-            self._config = dialog.get_config()
-            self._init_worker()
-
     def _switch_conversation(self, conv_id: str):
-        if conv_id and conv_id in self._conversations:
-            self._current_conv_id = conv_id
-            conv = self._conversations[conv_id]
-            self.chat_display.clear()
-            for msg in conv["messages"]:
+        if not conv_id or conv_id not in self._conversations:
+            return
+        if conv_id == self._current_conv_id:
+            return
+        self._save_current_conversation()
+        self._current_conv_id = conv_id
+        conv = self._conversations[conv_id]
+        self.header_title.setText(conv.get("title", "新对话"))
+
+        self.chat_display.clear()
+        messages = conv.get("messages", [])
+        if not messages:
+            self.chat_display.show_welcome()
+        else:
+            for msg in messages:
                 self.chat_display.add_message(
                     msg["content"], is_user=(msg["role"] == "user")
                 )
-            self._init_worker()
+        self.sidebar.update_conversations(self._conversations, conv_id)
+        # 切换对话后重置 Agent（历史对话不支持续聊，从头开始）
+        if self._worker:
+            self._worker.submit_reset()
 
     def _load_conversations(self):
         os.makedirs(_HISTORY_DIR, exist_ok=True)
@@ -405,8 +399,123 @@ class MainWindow(QMainWindow):
         os.makedirs(_HISTORY_DIR, exist_ok=True)
         path = os.path.join(_HISTORY_DIR, f"{self._current_conv_id}.json")
         data = {**conv, "id": self._current_conv_id}
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    # ------------------------------------------------ 消息收发
+
+    def eventFilter(self, obj, event):
+        if obj is self.message_input and event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                    self.message_input.insertPlainText("\n")
+                else:
+                    self._send_message()
+                return True
+        return super().eventFilter(obj, event)
+
+    def _on_suggestion(self, text: str):
+        if self._busy:
+            return
+        self.message_input.setPlainText(text)
+        self._send_message()
+
+    def _send_message(self):
+        if self._busy:
+            return
+        text = self.message_input.toPlainText().strip()
+        if not text:
+            return
+
+        self.chat_display.hide_welcome()
+        self.chat_display.add_message(text, is_user=True)
+        self.message_input.clear()
+        self.message_input.setFixedHeight(44)
+
+        conv = self._conversations.get(self._current_conv_id)
+        if conv:
+            conv["messages"].append({"role": "user", "content": text})
+            conv["timestamp"] = datetime.now().isoformat()
+            if conv["title"] == "新对话":
+                conv["title"] = text[:24]
+                self.header_title.setText(conv["title"])
+                self.sidebar.update_conversations(self._conversations, self._current_conv_id)
+
+        self._set_busy(True)
+        self.chat_display.show_thinking()
+        self._ensure_worker()
+        self._worker.submit(text)
+
+    def _set_busy(self, busy: bool):
+        self._busy = busy
+        self.send_btn.setEnabled(not busy)
+        self.header_status.setText("处理中…" if busy else "就绪")
+
+    def _on_status(self, text: str):
+        self.chat_display.show_thinking(text)
+        self.header_status.setText(text)
+
+    def _on_agent_response(self, text: str):
+        self.chat_display.hide_thinking()
+        self.chat_display.add_message(text, is_user=False)
+        conv = self._conversations.get(self._current_conv_id)
+        if conv:
+            conv["messages"].append({"role": "agent", "content": text})
+
+    def _on_plan_card_ready(self, card_dict: dict):
+        self.chat_display.hide_thinking()
+        self.chat_display.add_plan_card(card_dict)
+        conv = self._conversations.get(self._current_conv_id)
+        if conv:
+            conv["plan_card"] = card_dict
+            try:
+                from presentation.render_results import render_plan_card
+                conv["messages"].append(
+                    {"role": "agent", "content": render_plan_card(card_dict)}
+                )
+            except Exception:
+                conv["messages"].append(
+                    {"role": "agent", "content": json.dumps(card_dict, ensure_ascii=False)}
+                )
+
+    def _on_search_results(self, results: list):
+        self.chat_display.hide_thinking()
+        self.chat_display.add_search_cards(results)
+        conv = self._conversations.get(self._current_conv_id)
+        if conv:
+            conv["search_results"] = results
+            try:
+                from presentation.render_results import render_results
+                conv["messages"].append(
+                    {"role": "agent", "content": render_results(results)}
+                )
+            except Exception:
+                conv["messages"].append(
+                    {"role": "agent", "content": f"检索到 {len(results)} 篇论文"}
+                )
+
+    def _on_error(self, error: str):
+        self.chat_display.hide_thinking()
+        self.chat_display.add_message(f"[错误] {error}", is_user=False)
+
+    def _on_finished(self):
+        self.chat_display.hide_thinking()
+        self._set_busy(False)
+        self._save_current_conversation()
+        self.message_input.setFocus()
+
+    # ------------------------------------------------ 设置 / 导出
+
+    def _open_settings(self):
+        dialog = SettingsDialog(self)
+        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            self._config = dialog.get_config()
+            if self._worker:
+                self._worker.update_config(self._config)
 
     def _export_results(self):
         conv = self._conversations.get(self._current_conv_id)
@@ -459,7 +568,7 @@ class MainWindow(QMainWindow):
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "导出需求翻译卡", "", "Text Files (*.txt);;All Files (*)"
+            self, "导出需求翻译卡", "", "Text Files (*.txt);;YAML Files (*.yaml);;All Files (*)"
         )
         if not path:
             return
@@ -499,6 +608,6 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self._save_current_conversation()
         if self._worker:
-            self._worker.quit()
-            self._worker.wait()
+            self._worker.stop()
+            self._worker.wait(3000)
         event.accept()

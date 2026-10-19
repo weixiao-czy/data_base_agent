@@ -1,11 +1,11 @@
 """
 Agent 后台工作线程
-在 QThread 中运行澄清对话流程，通过信号与 GUI 通信
+队列驱动：所有 LLM / 网络调用都在子线程执行，GUI 永不阻塞
 """
 
 import sys
 import os
-import json
+import queue
 from PyQt6.QtCore import QThread, pyqtSignal
 
 # 确保 src 在 path 中
@@ -21,7 +21,6 @@ from search.real_search import RealSearchProvider
 from search.scimaster_mcp import SciMasterMCPProvider
 from search.scimaster_cli import SciMasterCLIProvider
 from llm.client import OpenAIClient, MockLLMClient
-from presentation.render_results import render_results, render_plan_card
 
 
 class AgentWorker(QThread):
@@ -32,6 +31,7 @@ class AgentWorker(QThread):
         agent_response(text)  — Agent 的文本回复
         plan_card_ready(dict) — 需求翻译卡生成完毕
         search_results(list)  — 检索结果
+        status(str)           — 进行中的状态提示（如"正在检索…"）
         round_info(str)       — 剩余轮次提示
         finished()            — 当前轮处理完毕
         error(str)            — 错误信息
@@ -40,23 +40,56 @@ class AgentWorker(QThread):
     agent_response = pyqtSignal(str)
     plan_card_ready = pyqtSignal(dict)
     search_results = pyqtSignal(list)
+    status = pyqtSignal(str)
     round_info = pyqtSignal(str)
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
-        self.config = config
+        self.config = dict(config or {})
         self.agent = None
-        self._pending_input = None
-        self._input_event = None
+        self._queue = queue.Queue()
+        self._running = True
 
-    def set_user_input(self, text: str):
-        """主线程调用：提供用户输入"""
-        self._pending_input = text
+    # ------------------------------------------------ 主线程调用（线程安全）
+
+    def submit(self, text: str):
+        """提交一条用户消息（入队，由工作线程处理）"""
+        self._queue.put(("input", text))
+
+    def submit_reset(self):
+        """重置 Agent 状态（新对话 / 切换对话时调用）"""
+        self._queue.put(("reset", None))
+
+    def update_config(self, config: dict):
+        """更新配置并重置 Agent"""
+        self.config = dict(config or {})
+        self.submit_reset()
+
+    def stop(self):
+        """停止工作线程"""
+        self._running = False
+        self._queue.put(("stop", None))
+
+    # ------------------------------------------------ 工作线程主循环
+
+    def run(self):
+        while self._running:
+            try:
+                kind, payload = self._queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if kind == "stop":
+                break
+            if kind == "reset":
+                self.agent = None
+                continue
+            if kind == "input":
+                self._process(payload)
 
     def init_agent(self):
-        """初始化 Agent（在 run 中调用）"""
+        """初始化 Agent（在工作线程中调用）"""
         max_rounds = self.config.get("max_rounds", 10)
         use_mock_llm = self.config.get("use_mock_llm", False)
 
@@ -77,7 +110,6 @@ class AgentWorker(QThread):
         clarifier = Clarifier(llm_client=llm_client)
         plan_card_gen = PlanCardGenerator(llm_client=llm_client)
 
-        # 检索提供者
         providers = []
         mcp = SciMasterMCPProvider(
             api_key=self.config.get("scimaster_api_key"),
@@ -103,23 +135,13 @@ class AgentWorker(QThread):
             "search_results": [],
         }
 
-    def run(self):
-        """等待用户输入并处理（由主线程通过 set_user_input 触发）"""
-        # 初始化在第一次 process 时做
-        pass
-
-    def process(self, user_text: str):
-        """
-        处理一条用户消息，根据当前状态执行对应逻辑。
-        由主线程调用。
-        """
+    def _process(self, user_text: str):
+        """处理一条用户消息（工作线程内执行）"""
         if self.agent is None:
+            self.status.emit("正在初始化…")
             self.init_agent()
 
         sm = self.agent["state_machine"]
-        clarifier = self.agent["clarifier"]
-        plan_card_gen = self.agent["plan_card_gen"]
-        search_provider = self.agent["search_provider"]
 
         try:
             state = sm.current_state
@@ -149,9 +171,10 @@ class AgentWorker(QThread):
             self.error.emit(str(e))
             self.finished.emit()
 
+    # ------------------------------------------------ 各状态处理
+
     def _handle_idle(self, text: str):
         sm = self.agent["state_machine"]
-        clarifier = self.agent["clarifier"]
 
         if text.lower() in ("跳过", "skip"):
             sm.interpretation = text
@@ -168,6 +191,7 @@ class AgentWorker(QThread):
         sm = self.agent["state_machine"]
         clarifier = self.agent["clarifier"]
 
+        self.status.emit("正在理解你的需求…")
         result = clarifier.restate(sm.user_input)
         restatement = result["restatement"]
         options = result["options"]
@@ -187,6 +211,7 @@ class AgentWorker(QThread):
         clarifier = self.agent["clarifier"]
         options = self.agent["current_options"]
 
+        self.status.emit("正在分析…")
         if text.lower() in ("跳过", "skip"):
             interpretation = options[0] if options else sm.user_input
         else:
@@ -207,6 +232,7 @@ class AgentWorker(QThread):
         sm = self.agent["state_machine"]
         clarifier = self.agent["clarifier"]
 
+        self.status.emit("正在生成澄清问题…")
         context = {
             "interpretation": sm.interpretation,
             "history": sm.clarification_history,
@@ -221,6 +247,7 @@ class AgentWorker(QThread):
 
         msg = f"（还剩 {remaining} 轮澄清机会）\n{question}\n\n（输入选项字母，或说「跳过」直接生成计划）"
         self.agent_response.emit(msg)
+        self.round_info.emit(f"剩余澄清轮次：{remaining}")
         sm.transition(AgentState.PROBE_KEY_FORK)
 
     def _handle_probe(self, text: str):
@@ -242,7 +269,7 @@ class AgentWorker(QThread):
         sm = self.agent["state_machine"]
         plan_card_gen = self.agent["plan_card_gen"]
 
-        self.agent_response.emit("\n正在生成需求翻译卡...")
+        self.status.emit("正在生成需求翻译卡…")
 
         plan_card = plan_card_gen.generate(
             sm.clarification_history,
@@ -252,13 +279,11 @@ class AgentWorker(QThread):
         sm.plan_card = plan_card
 
         card_dict = plan_card.to_dict()
-        rendered = render_plan_card(card_dict)
-        self.agent_response.emit(rendered)
         self.plan_card_ready.emit(card_dict)
 
         sm.transition(AgentState.USER_CONFIRM)
         self.agent_response.emit(
-            "\n这个计划看起来如何？\n"
+            "这个计划看起来如何？\n"
             "1. 确认，开始检索\n"
             "2. 需要调整（请说明）\n"
             "3. 重新生成\n"
@@ -279,7 +304,7 @@ class AgentWorker(QThread):
             sm.transition(AgentState.GENERATE_PLAN_CARD)
             self._handle_generate_plan()
         elif text in ("4", "跳过"):
-            self.agent_response.emit("\n好的，检索已跳过。你可以开始新的对话。")
+            self.agent_response.emit("好的，检索已跳过。你可以开始新的对话。")
             sm.reset()
         else:
             sm.transition(AgentState.CALL_SEARCH)
@@ -290,22 +315,21 @@ class AgentWorker(QThread):
         search_provider = self.agent["search_provider"]
 
         if not search_provider:
-            self.agent_response.emit("\n检索服务不可用，请手动使用需求翻译卡中的查询。")
+            self.agent_response.emit("检索服务不可用，请手动使用需求翻译卡中的查询。")
             sm.transition(AgentState.PRESENT_RESULTS)
             return
 
-        self.agent_response.emit("\n正在检索...")
-
         queries = sm.plan_card.search_plan["suggested_queries"]
         if not queries:
-            self.agent_response.emit("\n没有可用的检索查询。")
+            self.agent_response.emit("没有可用的检索查询。")
             sm.transition(AgentState.PRESENT_RESULTS)
             return
 
         primary_query = queries[0]
-        self.agent_response.emit(f"使用查询: {primary_query}")
+        self.status.emit(f"正在检索：{primary_query[:40]}…")
 
-        results = search_provider.search(primary_query, limit=10)
+        limit = int(self.config.get("search_default_limit", 10))
+        results = search_provider.search(primary_query, limit=limit)
 
         if results:
             self.agent["search_results"] = results
@@ -313,18 +337,14 @@ class AgentWorker(QThread):
             self.search_results.emit(results)
         else:
             self.agent["search_results"] = []
-            self.agent_response.emit("\n未找到相关论文。")
+            self.agent_response.emit("未找到相关论文。")
 
         sm.transition(AgentState.PRESENT_RESULTS)
         self._handle_present_results()
 
     def _handle_present_results(self):
-        results = self.agent.get("search_results", [])
-        if results:
-            rendered = render_results(results)
-            self.agent_response.emit(rendered)
         self.agent_response.emit(
-            "\n接下来你想：\n"
+            "接下来你想：\n"
             "1. 细化检索（开始新对话）\n"
             "2. 结束"
         )
@@ -332,12 +352,6 @@ class AgentWorker(QThread):
     def _handle_present(self, text: str):
         if text in ("1", "细化"):
             self.agent["state_machine"].reset()
-            self.agent_response.emit("\n请描述新的研究兴趣：")
+            self.agent_response.emit("请描述新的研究兴趣：")
         else:
-            self.agent_response.emit("\n再见！")
-
-    def reset(self):
-        """重置 Agent 状态"""
-        if self.agent and self.agent.get("state_machine"):
-            self.agent["state_machine"].reset()
-        self.agent = None
+            self.agent_response.emit("再见！")

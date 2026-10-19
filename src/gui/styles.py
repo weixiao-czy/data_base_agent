@@ -1,59 +1,54 @@
 """
-GUI 样式定义 — 专业现代风格
+设计系统 — 温暖中性色 + 陶土色点缀，参考成熟商业桌面应用
+间距基准 4px，字号阶梯 11/12/13/14/16/20
 """
 
-# 颜色系统
 COLORS = {
-    # 主色调
-    "primary": "#0078D4",
-    "primary_hover": "#106EBE",
-    "primary_light": "#DEECF9",
+    # 强调色（陶土色）
+    "accent": "#D97757",
+    "accent_hover": "#C96442",
+    "accent_soft": "#F7EBE5",
 
     # 背景
     "bg_main": "#FFFFFF",
-    "bg_sidebar": "#F3F2F1",
-    "bg_header": "#FAFAFA",
-    "bg_input": "#FFFFFF",
-    "bg_hover": "#F3F2F1",
-    "bg_selected": "#E5F3FF",
-    "bg_user_msg": "#F3F2F1",
-    "bg_agent_msg": "#FFFFFF",
+    "bg_titlebar": "#FAF9F7",
+    "bg_sidebar": "#F5F4F0",
+    "bg_subtle": "#F7F6F3",
+    "bg_user_bubble": "#F0EFE9",
+    "bg_hover": "#ECEAE4",
+    "bg_selected": "#E8E6DF",
 
     # 文字
-    "text_primary": "#323130",
-    "text_secondary": "#605E5C",
-    "text_tertiary": "#A19F9D",
+    "text_primary": "#2B2A26",
+    "text_secondary": "#6E6C66",
+    "text_tertiary": "#A3A19A",
     "text_inverse": "#FFFFFF",
-    "text_link": "#0078D4",
 
     # 边框
-    "border": "#E1DFDD",
-    "border_light": "#F3F2F1",
-    "border_focus": "#0078D4",
-
-    # 按钮
-    "btn_primary": "#0078D4",
-    "btn_primary_hover": "#106EBE",
-    "btn_secondary": "#FFFFFF",
-    "btn_secondary_hover": "#F3F2F1",
-    "btn_secondary_border": "#8A8886",
+    "border": "#E7E5E0",
+    "border_light": "#F0EEEA",
+    "border_strong": "#D9D7D1",
 
     # 状态
-    "success": "#107C10",
-    "warning": "#FFB900",
-    "error": "#D13438",
+    "success": "#3F8F5B",
+    "warning": "#C98A2D",
+    "error": "#C4483E",
 
-    # 侧边栏图标
-    "icon_default": "#605E5C",
-    "icon_active": "#0078D4",
+    # 兼容旧键
+    "primary": "#D97757",
+    "primary_hover": "#C96442",
 }
 
-# 字体
 FONT_FAMILY = "'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
-FONT_MONO = "'Cascadia Code', 'Consolas', monospace"
+FONT_MONO = "'Cascadia Code', 'Consolas', 'Microsoft YaHei UI', monospace"
 
-# 全局样式
+# ---------------------------------------------------------------- 全局
+
 GLOBAL_QSS = f"""
+* {{
+    outline: none;
+}}
+
 QMainWindow {{
     background-color: {COLORS['bg_main']};
 }}
@@ -64,22 +59,35 @@ QWidget {{
     color: {COLORS['text_primary']};
 }}
 
+QLabel {{
+    background: transparent;
+}}
+
+QToolTip {{
+    background-color: {COLORS['text_primary']};
+    color: {COLORS['text_inverse']};
+    border: none;
+    padding: 5px 9px;
+    font-size: 12px;
+    border-radius: 4px;
+}}
+
 QScrollArea {{
     border: none;
-    background-color: transparent;
+    background: transparent;
 }}
 
 QScrollBar:vertical {{
     border: none;
     background: transparent;
-    width: 8px;
-    margin: 0;
+    width: 10px;
+    margin: 2px;
 }}
 
 QScrollBar::handle:vertical {{
-    background: {COLORS['border']};
-    border-radius: 4px;
-    min-height: 30px;
+    background: {COLORS['border_strong']};
+    border-radius: 3px;
+    min-height: 36px;
 }}
 
 QScrollBar::handle:vertical:hover {{
@@ -89,122 +97,120 @@ QScrollBar::handle:vertical:hover {{
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0;
 }}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
+
+QScrollBar:horizontal {{
+    height: 0;
+}}
 """
 
-# 顶栏
+# ---------------------------------------------------------------- 标题栏
+
 TITLEBAR_QSS = f"""
 #titlebar {{
-    background-color: {COLORS['bg_header']};
+    background-color: {COLORS['bg_titlebar']};
     border-bottom: 1px solid {COLORS['border']};
-    min-height: 40px;
-    max-height: 40px;
+}}
+
+#titlebar_logo {{
+    background-color: {COLORS['accent']};
+    color: {COLORS['text_inverse']};
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
 }}
 
 #titlebar_title {{
     font-size: 12px;
     font-weight: 600;
-    color: {COLORS['text_primary']};
-    padding-left: 16px;
+    color: {COLORS['text_secondary']};
 }}
 
-#titlebar_btn {{
-    background-color: transparent;
+#win_btn {{
+    background: transparent;
     border: none;
-    color: {COLORS['text_primary']};
-    font-size: 10px;
-    padding: 0;
-    min-width: 46px;
-    max-width: 46px;
-    min-height: 40px;
-    max-height: 40px;
+    border-radius: 6px;
+    color: {COLORS['text_secondary']};
+    font-size: 11px;
+    min-width: 40px;
+    max-width: 40px;
+    min-height: 28px;
+    max-height: 28px;
 }}
 
-#titlebar_btn:hover {{
+#win_btn:hover {{
     background-color: {COLORS['bg_hover']};
+    color: {COLORS['text_primary']};
 }}
 
-#titlebar_close:hover {{
+#win_close {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: {COLORS['text_secondary']};
+    font-size: 11px;
+    min-width: 40px;
+    max-width: 40px;
+    min-height: 28px;
+    max-height: 28px;
+}}
+
+#win_close:hover {{
     background-color: {COLORS['error']};
     color: {COLORS['text_inverse']};
 }}
 """
 
-# 侧边栏
+# ---------------------------------------------------------------- 侧边栏
+
 SIDEBAR_QSS = f"""
 #sidebar {{
     background-color: {COLORS['bg_sidebar']};
     border-right: 1px solid {COLORS['border']};
 }}
 
-#sidebar_header {{
-    background-color: {COLORS['bg_sidebar']};
-    padding: 16px 12px 12px 12px;
-    border-bottom: 1px solid {COLORS['border']};
-}}
-
 #new_chat_btn {{
-    background-color: {COLORS['btn_primary']};
+    background-color: {COLORS['accent']};
     color: {COLORS['text_inverse']};
     border: none;
-    border-radius: 4px;
-    padding: 8px 16px;
+    border-radius: 9px;
+    padding: 9px 14px;
     font-size: 13px;
     font-weight: 600;
-    width: 100%;
+    text-align: left;
 }}
 
 #new_chat_btn:hover {{
-    background-color: {COLORS['btn_primary_hover']};
+    background-color: {COLORS['accent_hover']};
 }}
 
-#sidebar_sections {{
-    background-color: {COLORS['bg_sidebar']};
-    border: none;
-    padding: 8px 0;
-}}
-
-#sidebar_sections::item {{
-    background-color: transparent;
-    color: {COLORS['text_secondary']};
-    padding: 8px 16px;
-    font-size: 13px;
-    border: none;
-}}
-
-#sidebar_sections::item:hover {{
-    background-color: {COLORS['bg_hover']};
-    color: {COLORS['text_primary']};
-}}
-
-#sidebar_sections::item:selected {{
-    background-color: {COLORS['bg_selected']};
-    color: {COLORS['primary']};
-    font-weight: 600;
+#new_chat_btn:pressed {{
+    background-color: {COLORS['accent_hover']};
 }}
 
 #section_title {{
-    background-color: transparent;
     color: {COLORS['text_tertiary']};
     font-size: 11px;
     font-weight: 600;
-    padding: 12px 16px 6px 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    background: transparent;
 }}
 
 #conv_list {{
-    background-color: {COLORS['bg_sidebar']};
+    background: transparent;
     border: none;
-    padding: 0 8px;
+    font-size: 12.5px;
 }}
 
 #conv_list::item {{
-    background-color: transparent;
+    background: transparent;
     color: {COLORS['text_secondary']};
-    padding: 8px 12px;
-    font-size: 12px;
-    border-radius: 4px;
-    margin: 2px 0;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin: 1px 0;
     border: none;
 }}
 
@@ -215,96 +221,118 @@ SIDEBAR_QSS = f"""
 
 #conv_list::item:selected {{
     background-color: {COLORS['bg_selected']};
-    color: {COLORS['primary']};
-    font-weight: 500;
+    color: {COLORS['text_primary']};
+    font-weight: 600;
 }}
 
 #sidebar_footer {{
-    background-color: {COLORS['bg_sidebar']};
+    background: transparent;
     border-top: 1px solid {COLORS['border']};
-    padding: 8px 12px;
 }}
 
-#settings_btn {{
-    background-color: transparent;
-    color: {COLORS['text_secondary']};
+#footer_btn {{
+    background: transparent;
     border: none;
-    padding: 8px 12px;
-    font-size: 13px;
+    border-radius: 8px;
+    color: {COLORS['text_secondary']};
+    font-size: 12.5px;
     text-align: left;
-    border-radius: 4px;
-    width: 100%;
+    padding: 8px 12px;
 }}
 
-#settings_btn:hover {{
+#footer_btn:hover {{
     background-color: {COLORS['bg_hover']};
     color: {COLORS['text_primary']};
 }}
 """
 
-# 聊天区
+# ---------------------------------------------------------------- 聊天区
+
 CHAT_QSS = f"""
-#chat_container {{
+#chat_panel {{
     background-color: {COLORS['bg_main']};
 }}
 
-#toolbar {{
+#messages_container {{
+    background-color: {COLORS['bg_main']};
+}}
+
+#chat_header {{
     background-color: {COLORS['bg_main']};
     border-bottom: 1px solid {COLORS['border_light']};
-    padding: 8px 16px;
 }}
 
-#export_btn {{
-    background-color: {COLORS['btn_secondary']};
+#chat_header_title {{
+    font-size: 13.5px;
+    font-weight: 600;
     color: {COLORS['text_primary']};
-    border: 1px solid {COLORS['btn_secondary_border']};
-    border-radius: 4px;
-    padding: 6px 12px;
+    background: transparent;
+}}
+
+#chat_header_status {{
     font-size: 12px;
-    margin-right: 8px;
+    color: {COLORS['text_tertiary']};
+    background: transparent;
 }}
 
-#export_btn:hover {{
-    background-color: {COLORS['btn_secondary_hover']};
+#ghost_btn {{
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: {COLORS['text_secondary']};
+    font-size: 12px;
+    padding: 6px 11px;
 }}
 
-#input_area {{
-    background-color: {COLORS['bg_main']};
-    border-top: 1px solid {COLORS['border']};
-    padding: 16px;
-}}
-
-#message_input {{
-    background-color: {COLORS['bg_input']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 4px;
-    padding: 10px 14px;
-    font-size: 13px;
+#ghost_btn:hover {{
+    background-color: {COLORS['bg_subtle']};
     color: {COLORS['text_primary']};
-    selection-background-color: {COLORS['primary_light']};
 }}
 
-#message_input:focus {{
-    border-color: {COLORS['border_focus']};
-}}
-
-#message_input::placeholder {{
+#ghost_btn:disabled {{
     color: {COLORS['text_tertiary']};
 }}
 
+#input_dock {{
+    background-color: {COLORS['bg_main']};
+}}
+
+#input_card {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 14px;
+}}
+
+#message_input {{
+    background: transparent;
+    border: none;
+    font-size: 13.5px;
+    color: {COLORS['text_primary']};
+    selection-background-color: {COLORS['accent_soft']};
+    selection-color: {COLORS['text_primary']};
+}}
+
+#input_hint {{
+    color: {COLORS['text_tertiary']};
+    font-size: 11px;
+    background: transparent;
+}}
+
 #send_btn {{
-    background-color: {COLORS['btn_primary']};
+    background-color: {COLORS['accent']};
     color: {COLORS['text_inverse']};
     border: none;
-    border-radius: 4px;
-    padding: 10px 20px;
-    font-size: 13px;
+    border-radius: 17px;
+    font-size: 15px;
     font-weight: 600;
-    margin-left: 12px;
+    min-width: 34px;
+    max-width: 34px;
+    min-height: 34px;
+    max-height: 34px;
 }}
 
 #send_btn:hover {{
-    background-color: {COLORS['btn_primary_hover']};
+    background-color: {COLORS['accent_hover']};
 }}
 
 #send_btn:disabled {{
@@ -313,158 +341,277 @@ CHAT_QSS = f"""
 }}
 """
 
-# 消息气泡
+# ---------------------------------------------------------------- 消息与卡片
+
 MESSAGE_QSS = f"""
+#agent_text {{
+    color: {COLORS['text_primary']};
+    font-size: 13.5px;
+    background: transparent;
+}}
+
 #user_bubble {{
-    background-color: {COLORS['bg_user_msg']};
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin: 8px 60px 8px 100px;
+    background-color: {COLORS['bg_user_bubble']};
+    border-radius: 16px;
     border: 1px solid {COLORS['border_light']};
 }}
 
-#agent_bubble {{
-    background-color: {COLORS['bg_agent_msg']};
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin: 8px 100px 8px 60px;
-    border: 1px solid {COLORS['border']};
-}}
-
-#message_label {{
-    background-color: transparent;
+#user_bubble_text {{
     color: {COLORS['text_primary']};
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 13.5px;
+    background: transparent;
 }}
 
-#plan_card {{
-    background-color: {COLORS['bg_header']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 6px;
-    padding: 12px;
-    margin: 8px 0;
-    font-family: {FONT_MONO};
+#avatar_agent {{
+    background-color: {COLORS['accent']};
+    color: {COLORS['text_inverse']};
+    border-radius: 15px;
+    font-size: 13px;
+    font-weight: 700;
+}}
+
+#avatar_user {{
+    background-color: {COLORS['bg_selected']};
+    color: {COLORS['text_secondary']};
+    border-radius: 15px;
     font-size: 12px;
-}}
-
-#search_result {{
-    background-color: {COLORS['bg_header']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 6px;
-    padding: 12px;
-    margin: 8px 0;
-}}
-
-#search_result_title {{
-    font-size: 13px;
     font-weight: 600;
-    color: {COLORS['text_link']};
 }}
 
-#search_result_meta {{
-    font-size: 11px;
+#thinking_label {{
+    color: {COLORS['text_tertiary']};
+    font-size: 13px;
+    background: transparent;
+}}
+
+#welcome_title {{
+    font-size: 21px;
+    font-weight: 700;
+    color: {COLORS['text_primary']};
+    background: transparent;
+}}
+
+#welcome_sub {{
+    font-size: 13px;
     color: {COLORS['text_secondary']};
+    background: transparent;
 }}
 
-#search_result_abstract {{
+#welcome_logo {{
+    background-color: {COLORS['accent']};
+    color: {COLORS['text_inverse']};
+    border-radius: 14px;
+    font-size: 22px;
+    font-weight: 700;
+}}
+
+#suggestion_chip {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 10px;
+    color: {COLORS['text_secondary']};
+    font-size: 12.5px;
+    padding: 10px 14px;
+    text-align: left;
+}}
+
+#suggestion_chip:hover {{
+    border-color: {COLORS['accent']};
+    color: {COLORS['text_primary']};
+    background-color: {COLORS['accent_soft']};
+}}
+
+#plan_card_widget {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 14px;
+}}
+
+#plan_card_header {{
+    background-color: {COLORS['bg_subtle']};
+    border-top-left-radius: 13px;
+    border-top-right-radius: 13px;
+    border-bottom: 1px solid {COLORS['border_light']};
+}}
+
+#plan_card_title {{
+    font-size: 14px;
+    font-weight: 700;
+    color: {COLORS['text_primary']};
+    background: transparent;
+}}
+
+#plan_card_badge {{
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: {COLORS['accent']};
+    background: transparent;
+}}
+
+#plan_section_label {{
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: {COLORS['text_tertiary']};
+    background: transparent;
+}}
+
+#plan_section_value {{
+    font-size: 13px;
+    color: {COLORS['text_primary']};
+    background: transparent;
+}}
+
+#paper_card {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 12px;
+}}
+
+#paper_card:hover {{
+    border-color: {COLORS['border_strong']};
+}}
+
+#paper_title {{
+    font-size: 13.5px;
+    font-weight: 600;
+    color: {COLORS['text_primary']};
+    background: transparent;
+}}
+
+#paper_meta {{
     font-size: 12px;
     color: {COLORS['text_secondary']};
-    margin-top: 6px;
+    background: transparent;
+}}
+
+#paper_abstract {{
+    font-size: 12.5px;
+    color: {COLORS['text_secondary']};
+    background: transparent;
+}}
+
+#paper_badge {{
+    font-size: 10px;
+    font-weight: 600;
+    color: {COLORS['accent']};
+    background-color: {COLORS['accent_soft']};
+    border-radius: 4px;
+    padding: 2px 7px;
+}}
+
+#paper_link {{
+    font-size: 11.5px;
+    color: {COLORS['text_tertiary']};
+    background: transparent;
+}}
+
+#results_count_label {{
+    font-size: 12px;
+    font-weight: 600;
+    color: {COLORS['text_secondary']};
+    background: transparent;
 }}
 """
 
-# 设置对话框
+# ---------------------------------------------------------------- 设置对话框
+
 SETTINGS_QSS = f"""
 #settings_dialog {{
     background-color: {COLORS['bg_main']};
 }}
 
 #settings_title {{
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 17px;
+    font-weight: 700;
     color: {COLORS['text_primary']};
-    padding: 20px 24px;
-    border-bottom: 1px solid {COLORS['border']};
+    padding: 18px 24px 14px 24px;
+    background: transparent;
+}}
+
+QTabWidget::pane {{
+    border: none;
+    border-top: 1px solid {COLORS['border']};
+    background: {COLORS['bg_main']};
+}}
+
+QTabBar::tab {{
+    background: transparent;
+    color: {COLORS['text_secondary']};
+    font-size: 13px;
+    padding: 9px 18px;
+    border: none;
+    border-bottom: 2px solid transparent;
+}}
+
+QTabBar::tab:selected {{
+    color: {COLORS['accent']};
+    font-weight: 600;
+    border-bottom: 2px solid {COLORS['accent']};
+}}
+
+QTabBar::tab:hover {{
+    color: {COLORS['text_primary']};
 }}
 
 QLabel {{
-    font-size: 12px;
+    font-size: 12.5px;
     color: {COLORS['text_secondary']};
+    background: transparent;
 }}
 
 QLineEdit {{
-    background-color: {COLORS['bg_input']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 4px;
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 8px;
     padding: 8px 12px;
-    font-size: 12px;
+    font-size: 13px;
     color: {COLORS['text_primary']};
+    selection-background-color: {COLORS['accent_soft']};
 }}
 
 QLineEdit:focus {{
-    border-color: {COLORS['border_focus']};
-}}
-
-QComboBox {{
-    background-color: {COLORS['bg_input']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 12px;
+    border-color: {COLORS['accent']};
 }}
 
 QSpinBox {{
-    background-color: {COLORS['bg_input']};
-    border: 1px solid {COLORS['border']};
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 12px;
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
 }}
 
-QCheckBox {{
-    font-size: 12px;
-    color: {COLORS['text_primary']};
-    spacing: 8px;
-}}
-
-QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
-    border: 1px solid {COLORS['border']};
-    border-radius: 3px;
-    background-color: {COLORS['bg_input']};
-}}
-
-QCheckBox::indicator:checked {{
-    background-color: {COLORS['primary']};
-    border-color: {COLORS['primary']};
+QSpinBox:focus {{
+    border-color: {COLORS['accent']};
 }}
 
 #save_btn {{
-    background-color: {COLORS['btn_primary']};
+    background-color: {COLORS['accent']};
     color: {COLORS['text_inverse']};
     border: none;
-    border-radius: 4px;
-    padding: 8px 24px;
+    border-radius: 8px;
+    padding: 9px 26px;
     font-size: 13px;
     font-weight: 600;
 }}
 
 #save_btn:hover {{
-    background-color: {COLORS['btn_primary_hover']};
+    background-color: {COLORS['accent_hover']};
 }}
 
 #cancel_btn {{
-    background-color: {COLORS['btn_secondary']};
-    color: {COLORS['text_primary']};
-    border: 1px solid {COLORS['btn_secondary_border']};
-    border-radius: 4px;
-    padding: 8px 24px;
+    background-color: {COLORS['bg_main']};
+    color: {COLORS['text_secondary']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 8px;
+    padding: 9px 26px;
     font-size: 13px;
 }}
 
 #cancel_btn:hover {{
-    background-color: {COLORS['btn_secondary_hover']};
+    background-color: {COLORS['bg_subtle']};
+    color: {COLORS['text_primary']};
 }}
 """
