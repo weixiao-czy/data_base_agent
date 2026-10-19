@@ -68,6 +68,8 @@ class Clarifier:
         """
         interpretation = context.get("interpretation", "")
         history = context.get("history", [])
+        current_round = context.get("current_round", 1)
+        max_rounds = context.get("max_rounds", 10)
         
         # 构建历史文本
         history_text = "\n".join([
@@ -76,7 +78,9 @@ class Clarifier:
         ])
         
         # 使用 LLM 生成追问
-        prompt = self.prompt_manager.build_probe_prompt(interpretation, history_text)
+        prompt = self.prompt_manager.build_probe_prompt(
+            interpretation, history_text, current_round, max_rounds
+        )
         
         messages = [
             {"role": "system", "content": "你是一个文献检索辅助助手，帮助用户明确研究方向。"},

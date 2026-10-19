@@ -62,41 +62,60 @@ class PromptManager:
         """构建复述提示词"""
         template = self.templates.get("restate", "")
         
+        # 返回完整的提示词，包含用户输入
         prompt = f"""{template}
 
-用户输入：{user_input}
+---
 
-请根据上述规则，复述用户输入并给出 2-3 种可能的解读。"""
+现在请根据以上模板和规则，处理以下用户输入：
+
+用户输入："{user_input}"
+
+请输出复述和选项："""
         
         return prompt
     
-    def build_probe_prompt(self, interpretation: str, history: str) -> str:
+    def build_probe_prompt(self, interpretation: str, history: str, 
+                          current_round: int, max_rounds: int) -> str:
         """构建追问提示词"""
         template = self.templates.get("probe", "")
+        remaining = max_rounds - current_round
         
         prompt = f"""{template}
 
+---
+
+现在请根据以上模板和规则，针对以下情况生成追问：
+
 当前理解：{interpretation}
+当前轮次：第 {current_round} 轮
+剩余机会：{remaining} 轮
 
 对话历史：
 {history}
 
-请根据上述规则，提出一个关键分叉问题。"""
+请输出追问问题："""
         
         return prompt
     
-    def build_plan_card_prompt(self, history: str, user_input: str, interpretation: str) -> str:
+    def build_plan_card_prompt(self, history: str, user_input: str, 
+                              interpretation: str, rounds: int) -> str:
         """构建需求翻译卡生成提示词"""
         template = self.templates.get("plan_card", "")
         
         prompt = f"""{template}
 
+---
+
+现在请根据以上模板和规则，生成需求翻译卡：
+
 用户原始输入：{user_input}
 确认的研究方向：{interpretation}
+对话轮次：{rounds} 轮
 
 对话历史：
 {history}
 
-请根据上述规则，生成需求翻译卡。"""
+请输出 YAML 格式的需求翻译卡："""
         
         return prompt

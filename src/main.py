@@ -39,7 +39,7 @@ class LiteratureSearchAgent:
                 llm_client = MockLLMClient()
         
         self.clarifier = Clarifier(llm_client=llm_client)
-        self.plan_card_generator = PlanCardGenerator()
+        self.plan_card_generator = PlanCardGenerator(llm_client=llm_client)
         
         # 初始化检索提供者（MCP 优先，CLI 降级）
         self.search_provider = self._init_search_provider()
@@ -171,7 +171,9 @@ class LiteratureSearchAgent:
         """处理分叉追问状态"""
         context = {
             "interpretation": self.state_machine.interpretation,
-            "history": self.state_machine.clarification_history
+            "history": self.state_machine.clarification_history,
+            "current_round": self.state_machine.current_round,
+            "max_rounds": self.state_machine.max_rounds
         }
         
         question = self.clarifier.probe_key_fork(context)

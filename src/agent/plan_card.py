@@ -2,8 +2,10 @@
 需求翻译卡模块：生成结构化的检索计划
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
+from llm.client import LLMClient, MockLLMClient
+from llm.prompt_manager import PromptManager
 
 
 @dataclass
@@ -31,6 +33,16 @@ class PlanCard:
 class PlanCardGenerator:
     """需求翻译卡生成器"""
     
+    def __init__(self, llm_client: Optional[LLMClient] = None):
+        """
+        初始化生成器
+        
+        Args:
+            llm_client: LLM 客户端，如果不提供则使用 MockLLMClient
+        """
+        self.llm_client = llm_client or MockLLMClient()
+        self.prompt_manager = PromptManager()
+    
     def generate(self, clarification_history: List[Dict[str, Any]], 
                  user_input: str, interpretation: str) -> PlanCard:
         """
@@ -44,32 +56,139 @@ class PlanCardGenerator:
         Returns:
             PlanCard 实例
         """
+        # 构建历史文本
+        history_text = "\n".join([
+            f"{entry.get('role', 'user')}: {entry.get('content', '')}"
+            for entry in clarification_history
+        ])
+        
+        rounds = len([e for e in clarification_history if e.get('role') == 'user'])
+        
+        # 使用 LLM 生成需求翻译卡
+        prompt = self.prompt_manager.build_plan_card_prompt(
+            history_text, user_input, interpretation, rounds
+        )
+        
+        messages = [
+            {"role": "system", "content": "你是一个文献检索辅助助手，生成结构化的需求翻译卡。"},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = self.llm_client.chat(messages, temperature=0.5)
+            # 尝试解析 YAML 响应
+            plan_card_dict = self._parse_yaml_response(response)
+            if plan_card_dict:
+                return PlanCard(**plan_card_dict)
+        except Exception as e:
+            print(f"LLM 生成需求翻译卡失败，使用规则逻辑: {e}")
+        
+        # 降级到规则逻辑
+        return self._rule_based_generate(
+            clarification_history, user_input, interpretation
+        )
+    
+    def _parse_yaml_response(self, response: str) -> Optional[Dict[str, Any]]:
+        """解析 LLM 返回的 YAML 响应"""
+        import yaml
+        import re
+        
+        # 提取 YAML 部分
+        yaml_match = re.search(r'```yaml\s*(.*?)\s*```', response, re.DOTALL)
+        if yaml_match:
+            yaml_str = yaml_match.group(1)
+        else:
+            yaml_str = response
+        
+        try:
+            plan_card_dict = yaml.safe_load(yaml_str)
+            # 验证必需字段
+            required_fields = [
+                'research_interest', 'interpreted_question', 
+                'research_intent_type', 'key_dimensions',
+                'suggested_keywords', 'uncertainties',
+                'search_plan', 'next_actions'
+            ]
+            for field in required_fields:
+                if field not in plan_card_dict:
+                    return None
+            return plan_card_dict
+        except Exception:
+            return None
+    
+    def _rule_based_generate(self, clarification_history: List[Dict[str, Any]],
+                            user_input: str, interpretation: str) -> PlanCard:
+        """基于规则的需求翻译卡生成（降级方案）"""
         # 提取关键词
-        keywords = self._extract_keywords(interpretation)
+        import re
+        stop_words = {"我", "想", "要", "做", "的", "了", "是", "在", "和", "与", "或", "研究", "问题"}
+        keywords = [w for w in re.findall(r'[\u4e00-\u9fa5]+|[a-zA-Z]+', interpretation) 
+                   if w not in stop_words and len(w) > 1]
         
         # 生成检索查询
-        queries = self._generate_queries(keywords, interpretation)
+        queries = []
+        if keywords:
+            queries.append(" ".join(keywords[:3]))
+        if len(keywords) > 2:
+            queries.append(f"{keywords[0]} {keywords[2]}")
+        queries.append(f"{interpretation[:20]} research")
         
         # 确定研究类型
-        intent_type = self._determine_intent_type(interpretation)
+        if "应用" in interpretation or "系统" in interpretation:
+            intent_type = "项目驱动"
+        elif "如何" in interpretation or "怎么" in interpretation:
+            intent_type = "问题驱动"
+        elif "兴趣" in interpretation or "探索" in interpretation:
+            intent_type = "兴趣驱动"
+        else:
+            intent_type = "不确定"
+        
+        # 提取维度
+        dimensions = []
+        if "设计" in interpretation or "交互" in interpretation:
+            dimensions.append("交互设计")
+        if "算法" in interpretation:
+            dimensions.append("算法优化")
+        if "评估" in interpretation or "效果" in interpretation:
+            dimensions.append("效果评估")
+        if "用户" in interpretation or "体验" in interpretation:
+            dimensions.append("用户体验")
+        if not dimensions:
+            dimensions = ["理论研究", "实践应用"]
         
         # 识别不确定性
-        uncertainties = self._identify_uncertainties(clarification_history)
+        uncertainties = []
+        for entry in clarification_history:
+            content = entry.get("content", "")
+            if "不知道" in content or "跳过" in content:
+                uncertainties.append("用户对某些方面不够确定，建议进一步探索")
+                break
+        if not uncertainties:
+            uncertainties.append("研究方向已初步明确，可在检索过程中进一步细化")
+        
+        # 建议相邻领域
+        adjacent = []
+        if any(k in keywords for k in ["大模型", "LLM", "AI"]):
+            adjacent.extend(["自然语言处理", "信息检索", "人机交互"])
+        elif any(k in keywords for k in ["检索", "搜索"]):
+            adjacent.extend(["数据挖掘", "知识图谱", "推荐系统"])
+        else:
+            adjacent.extend(["相关领域研究"])
         
         return PlanCard(
             research_interest=user_input,
             interpreted_question=interpretation,
             research_intent_type=intent_type,
-            key_dimensions=self._extract_dimensions(interpretation),
+            key_dimensions=dimensions,
             suggested_keywords={
                 "primary": keywords[:3],
                 "variants": keywords[3:6] if len(keywords) > 3 else [],
-                "adjacent_fields": self._suggest_adjacent_fields(keywords)
+                "adjacent_fields": adjacent[:3]
             },
             uncertainties=uncertainties,
             search_plan={
                 "mode": "宽泛探索" if len(queries) > 2 else "精准检索",
-                "suggested_queries": queries
+                "suggested_queries": queries[:3]
             },
             next_actions=[
                 "调用 SciMaster 检索",
