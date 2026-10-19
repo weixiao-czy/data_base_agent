@@ -52,19 +52,26 @@ databaseagent/
 │   ├── 🤖 agent/          # Agent 核心逻辑
 │   │   ├── state_machine.py   # 状态机（控制对话流程）
 │   │   ├── clarifier.py       # 澄清器（复述、追问、收敛）
-│   │   └── plan_card.py       # 需求翻译卡生成
+│   │   ── plan_card.py       # 需求翻译卡生成
 │   ├── 🔍 search/         # 检索功能
 │   │   ├── provider.py        # 检索接口抽象
 │   │   ├── fallback_provider.py  # 自动降级链（优先级切换）
 │   │   ├── scimaster_mcp.py   # SciMaster MCP 检索（优先）
 │   │   ├── real_search.py     # Crossref + arXiv（降级兜底）
-│   │   └── scimaster_cli.py   # SciMaster CLI（最后降级）
+│   │   ── scimaster_cli.py   # SciMaster CLI（最后降级）
 │   ├── 🎨 presentation/   # 结果展示
-│   │   └── render_results.py  # 格式化输出
+│   │   ── render_results.py  # 格式化输出
 │   ├── 📝 prompts/        # 提示词模板
-│   └── main.py            # 主程序入口
-├── 📁 tests/              # 测试文件
+│   └── ️ gui/            # 桌面 GUI
+│       ├── main_window.py     # 主窗口（侧边栏 + 聊天）
+│       ├── chat_widget.py     # 聊天显示组件
+│       ├── agent_worker.py    # Agent 后台线程
+│       ├── settings_dialog.py # 设置对话框
+│       └── styles.py          # 样式定义
 ├── 📁 config/             # 配置文件
+├── 📄 gui_launcher.py     # GUI 启动脚本
+├── 📄 build_exe.py        # PyInstaller 打包脚本
+├── 📄 .env.example        # 环境变量示例
 └── 📄 requirements.txt    # 依赖包
 ```
 
@@ -91,9 +98,30 @@ cp .env.example .env
 
 ### 3️⃣ 运行 Agent
 
+**命令行模式：**
 ```bash
 python src/main.py
 ```
+
+**桌面 GUI 模式：**
+```bash
+python gui_launcher.py
+```
+
+GUI 功能：
+- 白色纯净风格，类似 Claude 桌面版
+- 左侧边栏：对话历史 + 设置
+- 气泡式对话界面，类似 OpenWebUI
+- 导出需求翻译卡 / 检索结果为 txt
+- 设置面板：配置 API Key、Base URL、模型等
+- 对话自动保存到本地
+
+**打包为独立 exe：**
+```bash
+pip install pyinstaller
+python build_exe.py
+```
+生成的 exe 位于 `dist/LiteratureSearchAgent/`，无需 Python 环境即可运行。
 
 ### 4️⃣ 开始对话
 

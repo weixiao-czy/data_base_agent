@@ -14,3 +14,9 @@ python-dotenv>=1.0.0
 
 # MCP 客户端（SciMaster 检索）
 mcp>=1.0.0
+
+# GUI（桌面应用）
+PyQt6>=6.5.0
+
+# 打包为 exe
+pyinstaller>=6.0.0
