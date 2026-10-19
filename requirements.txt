@@ -12,5 +12,5 @@ openai>=1.0.0
 # 环境变量管理
 python-dotenv>=1.0.0
 
-# MCP 客户端（待确认具体包名）
-# mcp-client
+# MCP 客户端（SciMaster 检索）
+mcp>=1.0.0

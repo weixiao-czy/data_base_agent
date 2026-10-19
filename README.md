@@ -37,9 +37,10 @@
 - ✅ 不确定性标注
 
 ### 🔍 文献检索
-- 接入 Crossref + arXiv 公开学术 API，真实文献、免费、无需 API Key
+- **SciMaster MCP**（优先）：通过 MCP 协议调用 SciMaster 检索，需配置 API Key
+- **Crossref + arXiv**（自动降级）：免费公开 API，无需 Key，SciMaster 不可用时自动切换
 - 返回论文元数据、摘要、URL、DOI、BibTeX
-- 预留 SciMaster/PaSaMaster MCP 与 CLI 降级接口（未来启用）
+- 检索失败自动降级，用户无感知
 
 ---
 
@@ -54,9 +55,10 @@ databaseagent/
 │   │   └── plan_card.py       # 需求翻译卡生成
 │   ├── 🔍 search/         # 检索功能
 │   │   ├── provider.py        # 检索接口抽象
-│   │   ├── real_search.py     # Crossref + arXiv 真实检索（默认）
-│   │   ├── scimaster_mcp.py   # SciMaster MCP（预留）
-│   │   └── scimaster_cli.py   # SciMaster CLI 降级（预留）
+│   │   ├── fallback_provider.py  # 自动降级链（优先级切换）
+│   │   ├── scimaster_mcp.py   # SciMaster MCP 检索（优先）
+│   │   ├── real_search.py     # Crossref + arXiv（降级兜底）
+│   │   └── scimaster_cli.py   # SciMaster CLI（最后降级）
 │   ├── 🎨 presentation/   # 结果展示
 │   │   └── render_results.py  # 格式化输出
 │   ├── 📝 prompts/        # 提示词模板
@@ -76,11 +78,16 @@ databaseagent/
 pip install -r requirements.txt
 ```
 
-### 2️⃣ 检索服务（开箱即用，无需配置）
+### 2️ 配置环境变量
 
-默认的 Crossref + arXiv 检索**免费、无需任何 API Key**，联网即可使用。
+```bash
+# 复制示例配置
+cp .env.example .env
 
-> 可选：未来若启用 SciMaster，需要 `npm install -g scimaster-cli` 并 `sci init`。
+# 编辑 .env，填入你的 API Key（可选）
+# - 不填 SciMaster Key → 自动使用 Crossref/arXiv（免费）
+# - 填入 SciMaster Key → 优先使用 SciMaster，失败自动降级
+```
 
 ### 3️⃣ 运行 Agent
 
@@ -139,7 +146,8 @@ graph LR
 
 - **Python 3.8+** - 主要开发语言
 - **状态机模式** - 控制对话流程
-- **Crossref / arXiv API** - 真实文献检索（免费、无需 Key）
+- **MCP 协议** - SciMaster 文献检索（优先）
+- **Crossref / arXiv API** - 免费文献检索（自动降级）
 - **PyYAML** - 需求翻译卡序列化
 
 ---

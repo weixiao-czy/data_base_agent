@@ -7,6 +7,7 @@ import os
 from agent.state_machine import StateMachine, AgentState
 from agent.clarifier import Clarifier
 from agent.plan_card import PlanCardGenerator
+from search.fallback_provider import FallbackSearchProvider
 from search.real_search import RealSearchProvider
 from search.scimaster_mcp import SciMasterMCPProvider
 from search.scimaster_cli import SciMasterCLIProvider
@@ -46,30 +47,38 @@ class LiteratureSearchAgent:
         self.search_provider = self._init_search_provider()
     
     def _init_search_provider(self):
-        """初始化检索提供者
+        """初始化检索提供者（自动降级链）
 
         优先级：
-        1. Crossref + arXiv 真实检索（免费、无需 Key，当前默认）
-        2. SciMaster MCP（真正的 MCP 调用尚未实现，实现后可提到首位）
-        3. SciMaster CLI 降级
+        1. SciMaster MCP（真实 API Key + npx 可用时启用）
+        2. Crossref + arXiv（免费、无需 Key，兜底来源）
+        3. SciMaster CLI（最后降级）
+
+        任一来源失败自动切换到下一个，用户无感知。
         """
-        real_provider = RealSearchProvider()
-        if real_provider.is_available():
-            print("使用真实检索模式（Crossref + arXiv，免费无需 Key）")
-            return real_provider
+        providers = []
 
-        mcp_provider = SciMasterMCPProvider()
-        if mcp_provider.is_available():
-            print("使用 SciMaster MCP 模式")
-            return mcp_provider
+        mcp = SciMasterMCPProvider()
+        if mcp.is_available():
+            providers.append(mcp)
 
-        cli_provider = SciMasterCLIProvider()
-        if cli_provider.is_available():
-            print("使用 CLI 降级模式")
-            return cli_provider
+        real = RealSearchProvider()
+        if real.is_available():
+            providers.append(real)
 
-        print("警告: 检索服务不可用，将只生成检索计划")
-        return None
+        cli = SciMasterCLIProvider()
+        if cli.is_available():
+            providers.append(cli)
+
+        if not providers:
+            print("警告: 检索服务不可用，将只生成检索计划")
+            return None
+
+        # 展示当前可用的来源
+        names = [p.__class__.__name__ for p in providers]
+        print(f"检索来源（按优先级）: {' -> '.join(names)}")
+
+        return FallbackSearchProvider(providers)
     
     def run(self):
         """运行 Agent 主循环"""
