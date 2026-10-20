@@ -7,7 +7,7 @@ import re
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
-    QLabel, QPushButton,
+    QLabel, QPushButton, QSizePolicy,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor
@@ -106,20 +106,30 @@ class Avatar(QLabel):
 
 
 class _CenteredColumn(QWidget):
-    """居中限宽列容器"""
+    """居中限宽列容器
+
+    注意列必须以 stretch=1 加入且自身为 Expanding：
+    QHBoxLayout 先按 sizeHint 分配，再加 stretch 分配剩余空间。换行 QLabel
+    的 sizeHint 出奇地窄（约 380px），若列不带 stretch，整列就会缩成
+    sizeHint 那么窄、两侧全留给弹簧——这正是「文字两边留白很大」的原因。
+    列拿到 stretch=1 后会一直撑满到 980px 上限，超出部分才轮到两侧弹簧。
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.addStretch(1)
         self.column = QWidget()
         self.column.setMaximumWidth(_CONTENT_MAX_WIDTH)
+        self.column.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
         self.column_layout = QVBoxLayout(self.column)
         self.column_layout.setContentsMargins(0, 0, 0, 0)
         self.column_layout.setSpacing(0)
-        outer.addWidget(self.column)
-        outer.addStretch(1)
+        outer.addStretch(0)
+        outer.addWidget(self.column, 1)
+        outer.addStretch(0)
 
 
 class MessageRow(_CenteredColumn):
