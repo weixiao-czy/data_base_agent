@@ -262,18 +262,27 @@ class LiteratureSearchAgent:
         print("2. 需要调整")
         print("3. 重新生成")
         print("4. 重新导出 txt")
+        print("5. 以树形图查看文献结构（发散检索 + 思维导图）")
         
         self.state_machine.transition(AgentState.USER_CONFIRM)
     
     def _handle_user_confirm(self):
         """处理用户确认状态"""
-        choice = input("\n> ").strip()
+        try:
+            choice = input("\n> ").strip()
+        except EOFError:
+            print("\n再见！")
+            sys.exit(0)
         
         if choice in ['1', '确认']:
             self.state_machine.transition(AgentState.CALL_SEARCH)
         elif choice in ['2', '调整']:
             print("请告诉我需要调整什么：")
-            adjustment = input("\n> ").strip()
+            try:
+                adjustment = input("\n> ").strip()
+            except EOFError:
+                print("\n再见！")
+                sys.exit(0)
             self.state_machine.add_to_history("user", f"调整: {adjustment}")
             # 重新生成
             self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
@@ -284,9 +293,126 @@ class LiteratureSearchAgent:
             if output_path:
                 print(f"\n[已保存] 需求翻译卡已导出到: {output_path}")
             # 继续等待用户选择
+        elif choice in ['5', '树形图', '导图', 'map']:
+            self._view_literature_tree()
         else:
             print("无效选择，默认开始检索")
             self.state_machine.transition(AgentState.CALL_SEARCH)
+    
+    def _view_literature_tree(self):
+        """以树形图查看文献结构
+        
+        复用前面多轮澄清得到的结论作为检索主题，而不是让用户重新输入，
+        这样「对话澄清 → 层级导图」是一条连贯的链路。
+        """
+        print("\n" + "=" * 50)
+        print("以树形图查看文献结构")
+        print("=" * 50)
+        
+        # 检索主题的优先级：
+        #   1. 用户最初描述的研究兴趣（信息量最大，含具体领域词）
+        #   2. 澄清后的解读结论
+        #   3. 需求翻译卡中的主关键词
+        # 不能反过来用「解读结论」优先：多轮澄清后它常被收敛成
+        # 「理论研究」「实践应用」这类无区分度的词，拿去检索会跑偏。
+        sm = self.state_machine
+        candidates = [sm.user_input, sm.interpretation]
+        plan = sm.plan_card
+        if plan:
+            candidates.append(" ".join(plan.suggested_keywords.get('primary', [])[:3]))
+
+        vague = {'理论研究', '实践应用', '不确定', '系统实现', '理论分析', '实验验证'}
+        topic = ""
+        for c in candidates:
+            c = (c or "").strip()
+            if c and c not in vague:
+                topic = c
+                break
+        if not topic:
+            topic = (sm.user_input or sm.interpretation or "").strip()
+        if not topic:
+            print("没有得到有效的研究主题，请回到上一步重新描述。")
+            return
+
+        # 需求翻译卡里的建议检索式对发散检索仍然有参考价值，一并展示
+        queries = plan.search_plan.get('suggested_queries', []) if plan else []
+        
+        print(f"检索主题：{topic}")
+        if queries:
+            print("需求翻译卡中的建议检索式：")
+            for q in queries[:3]:
+                print(f"  · {q}")
+        
+        print("\n将在此主题下按「综述 / 方法 / 应用 / 数据集 / 挑战 / 前沿」"
+              "六个维度发散检索，并生成层级导图。")
+        
+        try:
+            scale = input("\n检索规模（1=快速约30秒 / 2=标准约1分钟 / 回车=标准）：").strip()
+        except (EOFError, KeyboardInterrupt):
+            scale = ""
+        if scale == "1":
+            cfg = dict(seed_limit=8, per_topic=2, topics_per_aspect=2, max_queries=8)
+        else:
+            cfg = dict(seed_limit=15, per_topic=3, topics_per_aspect=3, max_queries=18)
+        
+        try:
+            from litmap.builder import LiteratureMapBuilder, summarize
+            from litmap.render import to_html, to_json, to_markdown
+        except ImportError as e:
+            print(f"[错误] 文献地图模块不可用：{e}")
+            return
+        
+        llm = None if isinstance(self.clarifier.llm_client, MockLLMClient) else self.clarifier.llm_client
+        
+        builder = LiteratureMapBuilder(
+            provider=self.search_provider,
+            llm_client=llm,
+            **cfg,
+        )
+        try:
+            litmap = builder.build(topic)
+        except Exception as e:
+            print(f"[错误] 构建文献地图失败：{e}")
+            return
+        
+        # 输出三份产物
+        import os
+        from datetime import datetime
+        output_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "output", "maps"
+        )
+        os.makedirs(output_dir, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = "".join(c if (c.isalnum() or c in "-_") else "_" for c in topic)[:40]
+        base = os.path.join(output_dir, f"{slug}_{stamp}")
+        
+        with open(base + ".html", "w", encoding="utf-8") as f:
+            f.write(to_html(litmap))
+        with open(base + ".md", "w", encoding="utf-8") as f:
+            f.write(to_markdown(litmap))
+        with open(base + ".json", "w", encoding="utf-8") as f:
+            f.write(to_json(litmap))
+        
+        print()
+        print(summarize(litmap))
+        print()
+        print(f"[已保存] 树形图（浏览器打开）：{base}.html")
+        print(f"[已保存] 层级大纲：{base}.md")
+        print(f"[已保存] 结构化数据：{base}.json")
+        
+        try:
+            import webbrowser
+            webbrowser.open("file://" + os.path.abspath(base + ".html"))
+            print("\n已在浏览器中打开导图。")
+        except Exception:
+            pass
+        
+        print("\n按回车回到计划确认页面…")
+        try:
+            input()
+        except (EOFError, KeyboardInterrupt):
+            pass
+        # 停留在 USER_CONFIRM，方便用户继续选择「确认开始检索」
     
     def _handle_search(self):
         """处理检索状态"""
