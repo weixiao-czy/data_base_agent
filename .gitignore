@@ -28,3 +28,7 @@ wheels/
 
 # PyInstaller
 *.spec
+
+# PyInstaller 旁路构建目录（dist 被占用时临时使用）
+build_new/
+dist_new/
