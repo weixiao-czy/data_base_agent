@@ -131,7 +131,11 @@ class LiteratureSearchAgent:
     
     def _handle_idle(self):
         """处理初始状态"""
-        user_input = input("\n> ").strip()
+        try:
+            user_input = input("\n> ").strip()
+        except EOFError:
+            print("\n再见！")
+            sys.exit(0)
         
         if user_input.lower() == 'quit':
             print("再见！")
@@ -174,7 +178,11 @@ class LiteratureSearchAgent:
     
     def _handle_confirm(self):
         """处理确认状态"""
-        user_choice = input("\n> ").strip()
+        try:
+            user_choice = input("\n> ").strip()
+        except EOFError:
+            print("\n再见！")
+            sys.exit(0)
         
         if user_choice.lower() == 'quit':
             print("再见！")
@@ -217,7 +225,12 @@ class LiteratureSearchAgent:
         self.state_machine.add_to_history("agent", question)
         self.state_machine.increment_round()
         
-        user_answer = input("\n> ").strip()
+        user_answer = None
+        try:
+            user_answer = input("\n> ").strip()
+        except EOFError:
+            print("\n再见！")
+            sys.exit(0)
         
         if user_answer.lower() == 'quit':
             print("再见！")
@@ -229,12 +242,20 @@ class LiteratureSearchAgent:
             return
         
         self.state_machine.add_to_history("user", user_answer)
+        self.state_machine.add_to_history("agent", f"已记录: {user_answer}")
+        
+        # 已经把用户回答写进解读结论，供下一轮追问参考
+        if user_answer:
+            self.state_machine.interpretation = (
+                f"{self.state_machine.interpretation}；{user_answer}"
+            )
         
         # 检查是否还能继续追问
         if self.state_machine.can_clarify():
-            # 继续追问或生成计划
-            self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
+            # 回到追问状态继续澄清（最多 max_rounds 轮）
+            self.state_machine.transition(AgentState.PROBE_KEY_FORK)
         else:
+            # 轮次用尽，收敛到需求翻译卡
             self.state_machine.transition(AgentState.GENERATE_PLAN_CARD)
     
     def _handle_generate_plan(self):
@@ -471,7 +492,13 @@ class LiteratureSearchAgent:
         print("2. 细化检索")
         print("3. 结束")
         
-        choice = input("\n> ").strip()
+        try:
+            choice = input("\n> ").strip()
+        except EOFError:
+            # 输入流结束（管道/重定向场景）时必须退出，
+            # 否则状态机停留在 PRESENT_RESULTS，会不断重新打印全部结果
+            print("\n再见！")
+            sys.exit(0)
         
         if choice == '3' or choice.lower() == '结束':
             print("再见！")
