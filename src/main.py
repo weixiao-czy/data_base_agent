@@ -35,9 +35,19 @@ class LiteratureSearchAgent:
         else:
             try:
                 llm_client = OpenAIClient()
-                print("使用 OpenAI LLM 模式")
+                print(f"使用 LLM 模式（模型：{llm_client.model}）")
             except Exception as e:
-                print(f"OpenAI 初始化失败，降级到模拟模式: {e}")
+                # 配置错误要让人看得见：静默降级会让用户以为自己在用真实模型，
+                # 实际拿到的是模拟回复，排查成本极高。
+                print()
+                print("!" * 62)
+                print("LLM 初始化失败，已降级为「模拟 LLM 模式」。")
+                print("注意：此模式下不会真正调用大模型，回复内容为固定模板。")
+                print()
+                for line in str(e).splitlines():
+                    print(f"  {line}")
+                print("!" * 62)
+                print()
                 llm_client = MockLLMClient()
         
         self.clarifier = Clarifier(llm_client=llm_client)
