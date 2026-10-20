@@ -51,6 +51,19 @@ class AgentWorker(QThread):
         self.agent = None
         self._queue = queue.Queue()
         self._running = True
+        self._llm_init_error = ""
+        self._warned_keys = set()
+
+    def _warn_once(self, key: str, text: str):
+        """同一类警告只播报一次，避免每轮追问都刷屏"""
+        if key in self._warned_keys:
+            return
+        self._warned_keys.add(key)
+        self.agent_response.emit(text)
+
+    def _on_llm_error(self, msg: str):
+        """Clarifier 降级回调：把 LLM 调用失败的原因显示到对话里"""
+        self._warn_once("llm-call", f"⚠ {msg}")
 
     # ------------------------------------------------ 主线程调用（线程安全）
 
@@ -95,6 +108,7 @@ class AgentWorker(QThread):
 
         state_machine = StateMachine(max_rounds=max_rounds)
 
+        self._llm_init_error = ""
         if use_mock_llm:
             llm_client = MockLLMClient()
         else:
@@ -104,10 +118,14 @@ class AgentWorker(QThread):
                     base_url=self.config.get("openai_base_url"),
                     model=self.config.get("openai_model"),
                 )
-            except Exception:
+            except Exception as e:
+                # 不能再静默降级：打包成 exe 后是窗口程序，没有控制台，
+                # 用户看到的只是模板式回复，完全不知道模型没连上。
+                # 把原因记下来，稍后显示到对话里。
                 llm_client = MockLLMClient()
+                self._llm_init_error = str(e)
 
-        clarifier = Clarifier(llm_client=llm_client)
+        clarifier = Clarifier(llm_client=llm_client, on_error=self._on_llm_error)
         plan_card_gen = PlanCardGenerator(llm_client=llm_client)
 
         providers = []
@@ -140,6 +158,14 @@ class AgentWorker(QThread):
         if self.agent is None:
             self.status.emit("正在初始化…")
             self.init_agent()
+            if self._llm_init_error:
+                from llm.client import ENV_FILE
+                self.agent_response.emit(
+                    "⚠ 未能启用大模型，当前为「模拟 LLM 模式」，回复是固定模板。\n"
+                    f"原因：{self._llm_init_error}\n"
+                    f"已读取 .env：{ENV_FILE or '（未找到）'}\n"
+                    "请检查 .env 是否与程序在同一目录，且 OPENAI_API_KEY 为真实密钥。"
+                )
 
         sm = self.agent["state_machine"]
 
@@ -287,7 +313,107 @@ class AgentWorker(QThread):
             "1. 确认，开始检索\n"
             "2. 需要调整（请说明）\n"
             "3. 重新生成\n"
-            "4. 跳过检索"
+            "4. 跳过检索\n"
+            "5. 以树形图查看文献结构（发散检索 + 思维导图）"
+        )
+
+    def _view_literature_tree(self):
+        """以树形图查看文献结构（与命令行版同一逻辑，接在澄清结论之后）"""
+        sm = self.agent["state_machine"]
+
+        # 检索主题优先级与 CLI 版一致：原始输入 > 解读结论 > 翻译卡关键词。
+        # 多轮澄清后 interpretation 常收敛成「理论研究」这类词，直接用会跑偏。
+        candidates = [sm.user_input, sm.interpretation]
+        plan = sm.plan_card
+        if plan:
+            try:
+                candidates.append(" ".join(plan.suggested_keywords.get("primary", [])[:3]))
+            except Exception:
+                pass
+
+        vague = {"理论研究", "实践应用", "不确定", "系统实现", "理论分析", "实验验证"}
+        topic = ""
+        for c in candidates:
+            c = (c or "").strip()
+            if c and c not in vague:
+                topic = c
+                break
+        if not topic:
+            self.agent_response.emit("没有得到有效的研究主题，请先描述研究兴趣。")
+            return
+
+        try:
+            from litmap.builder import LiteratureMapBuilder, summarize
+            from litmap.render import to_html, to_json, to_markdown
+        except ImportError as e:
+            self.agent_response.emit(f"⚠ 文献地图模块不可用：{e}")
+            return
+
+        llm = self.agent["clarifier"].llm_client
+        if isinstance(llm, MockLLMClient):
+            llm = None  # 模拟模式不传给 builder，让扩展器回落到规则模板
+
+        self.status.emit(f"正在构建文献树形图：{topic}（约 1 分钟）…")
+        builder = LiteratureMapBuilder(
+            provider=self.agent["search_provider"],
+            llm_client=llm,
+            seed_limit=12,
+            per_topic=3,
+            topics_per_aspect=3,
+            max_queries=15,
+            progress=lambda msg: self.status.emit(msg),
+        )
+        try:
+            litmap = builder.build(topic)
+        except Exception as e:
+            self.agent_response.emit(f"⚠ 构建文献地图失败：{e}")
+            return
+
+        # 产物目录：源码运行放项目根 output/maps；打包后放 exe 同级 output/maps
+        if getattr(sys, "frozen", False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+        out_dir = os.path.join(base_dir, "output", "maps")
+        os.makedirs(out_dir, exist_ok=True)
+
+        from datetime import datetime
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = "".join(c if (c.isalnum() or c in "-_") else "_" for c in topic)[:40]
+        base = os.path.join(out_dir, f"{slug}_{stamp}")
+
+        try:
+            with open(base + ".html", "w", encoding="utf-8") as f:
+                f.write(to_html(litmap))
+            with open(base + ".md", "w", encoding="utf-8") as f:
+                f.write(to_markdown(litmap))
+            with open(base + ".json", "w", encoding="utf-8") as f:
+                f.write(to_json(litmap))
+        except OSError as e:
+            self.agent_response.emit(f"⚠ 树形图已生成但写文件失败：{e}")
+            return
+
+        import webbrowser
+        try:
+            webbrowser.open("file://" + os.path.abspath(base + ".html"))
+        except Exception:
+            pass
+
+        # 停留在 USER_CONFIRM，用户看完导图还能继续选「确认，开始检索」
+        self.agent_response.emit(
+            "文献树形图已生成，并已在浏览器中打开。\n\n"
+            + summarize(litmap)
+            + f"\n\n[已保存] 导图：{base}.html\n"
+              f"[已保存] 大纲：{base}.md\n"
+              f"[已保存] 数据：{base}.json\n\n"
+              "这个计划看起来如何？\n"
+              "1. 确认，开始检索\n"
+              "2. 需要调整（请说明）\n"
+              "3. 重新生成\n"
+              "4. 跳过检索\n"
+              "5. 再生成一份树形图"
         )
 
     def _handle_user_confirm(self, text: str):
@@ -306,6 +432,8 @@ class AgentWorker(QThread):
         elif text in ("4", "跳过"):
             self.agent_response.emit("好的，检索已跳过。你可以开始新的对话。")
             sm.reset()
+        elif text in ("5", "树形图", "导图", "map"):
+            self._view_literature_tree()
         else:
             sm.transition(AgentState.CALL_SEARCH)
             self._handle_search()

@@ -11,16 +11,30 @@ from llm.prompt_manager import PromptManager
 class Clarifier:
     """对话澄清器：实现复述、分叉、收敛逻辑"""
     
-    def __init__(self, llm_client: Optional[LLMClient] = None):
+    def __init__(self, llm_client: Optional[LLMClient] = None, on_error=None):
         """
         初始化澄清器
         
         Args:
             llm_client: LLM 客户端，如果不提供则使用 MockLLMClient
+            on_error: 可选回调，LLM 调用失败降级时用来把原因播报给界面。
+                      GUI 是 console=False 的窗口程序，print 出来的内容
+                      用户根本看不到，只能走回调显示到对话里。
         """
         self.llm_client = llm_client or MockLLMClient()
         self.prompt_manager = PromptManager()
         self.interpretations = []
+        self.on_error = on_error
+    
+    def _report_llm_error(self, stage: str, exc: Exception):
+        """LLM 调用失败时统一播报：既打日志，也通知界面"""
+        msg = f"LLM 调用失败（{stage}），本次已降级为规则逻辑：{exc}"
+        print(msg)
+        if self.on_error:
+            try:
+                self.on_error(msg)
+            except Exception:
+                pass
     
     def restate(self, user_input: str) -> Dict[str, Any]:
         """
@@ -53,7 +67,7 @@ class Clarifier:
             }
         except Exception as e:
             # 降级到规则逻辑
-            print(f"LLM 调用失败，使用规则逻辑: {e}")
+            self._report_llm_error("需求复述", e)
             return self._rule_based_restate(user_input)
     
     def probe_key_fork(self, context: Dict[str, Any]) -> str:
@@ -87,13 +101,18 @@ class Clarifier:
             {"role": "user", "content": prompt}
         ]
         
+        # MockLLMClient 只会返回固定模板，连续多轮会重复同一句。
+        # 模拟模式下直接走规则追问，才能体现真实的十轮澄清。
+        if isinstance(self.llm_client, MockLLMClient):
+            return self._rule_based_probe(interpretation, current_round, history)
+        
         try:
             response = self.llm_client.chat(messages, temperature=0.7)
             return response
         except Exception as e:
             # 降级到规则逻辑
-            print(f"LLM 调用失败，使用规则逻辑: {e}")
-            return self._rule_based_probe(interpretation)
+            self._report_llm_error("关键分叉追问", e)
+            return self._rule_based_probe(interpretation, current_round, history)
     
     def should_converge(self, round_count: int, max_rounds: int) -> bool:
         """判断是否应该收敛"""
@@ -174,11 +193,63 @@ class Clarifier:
             "keywords": keywords
         }
     
-    def _rule_based_probe(self, interpretation: str) -> str:
-        """基于规则的追问（降级方案）"""
-        if "交互" in interpretation or "设计" in interpretation:
-            return "你更关心具体的交互设计方案，还是用户体验评估方法？\nA. 交互设计方案\nB. 用户体验评估\nC. 都关心"
-        elif "算法" in interpretation or "检索" in interpretation:
-            return "你更关注检索算法的改进，还是检索效果的评估？\nA. 检索算法改进\nB. 检索效果评估\nC. 都关注"
-        else:
-            return "你想从哪个角度切入这个研究？\nA. 理论分析\nB. 实验验证\nC. 系统实现"
+    def _rule_based_probe(self, interpretation: str,
+                          current_round: int = 1,
+                          history: Optional[List[Dict[str, Any]]] = None) -> str:
+        """基于规则的追问（降级方案）
+        
+        支持多轮：按轮次依次提出不同维度的问题。
+        原来固定返回同一句，恢复十轮追问后会连续问同一个问题，
+        所以这里按「澄清维度」排布，并结合历史跳过已经收集过的信息。
+        """
+        # 六个澄清维度，按「从粗到细」排列：
+        # 先锁定问题域，再往下切角度、方法、证据、产出、边界
+        dimensions = [
+            ("研究角度", "你想从哪个角度切入这个研究？",
+             ["A. 理论分析", "B. 实验验证", "C. 系统实现"]),
+            ("具体场景", "你希望在什么样的具体场景下验证你的想法？",
+             ["A. 真实用户/数据集", "B. 公开基准测试", "C. 实验室原型"]),
+            ("方法路线", "你更倾向沿用成熟方法，还是探索新方法？",
+             ["A. 沿用并改进现有方法", "B. 组合多种方法", "C. 提出全新思路"]),
+            ("数据与工具", "你目前手上有可用的数据或工具吗？",
+             ["A. 有数据", "B. 有工具/平台", "C. 都还没有"]),
+            ("评判标准", "你打算用什么标准判断做得好不好？",
+             ["A. 量化指标", "B. 用户研究", "C. 案例分析"]),
+            ("产出形式", "最终你希望产出什么？",
+             ["A. 论文", "B. 可运行系统", "C. 调研报告"]),
+            ("时间与规模", "这个研究的时间尺度大概是？",
+             ["A. 一学期内", "B. 一年左右", "C. 长期项目"]),
+            ("已知基础", "这个方向上你已经读过哪些工作？",
+             ["A. 只了解大概", "B. 读过几篇", "C. 比较熟悉"]),
+            ("风险偏好", "你更愿意做稳妥的增量工作，还是高风险高回报的探索？",
+             ["A. 稳妥增量", "B. 高风险探索", "C. 两者结合"]),
+            ("边界", "有什么是你明确不想做的？",
+             ["A. 不想做工程实现", "B. 不想做理论推导", "C. 暂时没有"]),
+        ]
+        
+        # 第 1 轮结合解读中的关键词，让问题更贴合（只在首轮使用，避免重复）
+        if current_round <= 1:
+            if "交互" in interpretation or "设计" in interpretation:
+                return ("你更关心具体的交互设计方案，还是用户体验评估方法？\n"
+                        "A. 交互设计方案\nB. 用户体验评估\nC. 都关心")
+            if "算法" in interpretation or "检索" in interpretation:
+                return ("你更关注检索算法的改进，还是检索效果的评估？\n"
+                        "A. 检索算法改进\nB. 检索效果评估\nC. 都关注")
+        
+        idx = min(max(current_round - 1, 0), len(dimensions) - 1)
+        name, question, options = dimensions[idx]
+        
+        # 若该维度的问题已在历史里出现，往后找一个没问过的。
+        # 判重必须比对「问题本身」而不是选项文本：
+        # 不同维度的 A 选项往往是「理论分析 / 有数据 / 论文」这类高频词，用选项判重会误伤。
+        asked = " ".join(
+            str(e.get("content", "")) for e in (history or [])
+            if e.get("role") == "agent"
+        )
+        for offset in range(len(dimensions)):
+            _, q, opts = dimensions[(idx + offset) % len(dimensions)]
+            if q not in asked:
+                question, options = q, opts
+                break
+        
+        return f"{question}\n" + "\n".join(options)

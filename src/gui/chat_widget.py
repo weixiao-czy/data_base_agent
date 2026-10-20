@@ -7,15 +7,69 @@ import re
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
-    QLabel, QPushButton,
+    QLabel, QPushButton, QSizePolicy,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor
 
-from .styles import COLORS
+from .styles import COLORS, FONT_MONO
 
 _URL_RE = re.compile(r"(https?://[^\s<>\"']+)")
-_CONTENT_MAX_WIDTH = 780
+# 已有 markdown 链接括号里的 URL 不再重复包一层：[text](https://a) 里的 url
+_URL_MD_RE = re.compile(r"(?<!\]\()(https?://[^\s<>()\[\]]+)")
+_CONTENT_MAX_WIDTH = 980
+
+# ---------------------------------------------------------------- markdown 渲染
+# Agent 的回复是 markdown（**加粗**、列表、代码块、表格等），QLabel 直接显示
+# 会把这些记号原样打出来。用 markdown-it 转成 QLabel 支持的 HTML 子集；
+# Qt 富文本不认外部样式表，样式必须内联在标签上。
+
+try:
+    from markdown_it import MarkdownIt
+    _MD = MarkdownIt("commonmark", {"breaks": True, "html": False}).enable("table")
+except ImportError:  # 兜底：库缺失时退回纯文本转义，功能不崩
+    _MD = None
+
+
+def _md(text: str) -> str:
+    """markdown → Qt 富文本可用的 HTML；库缺失时退回 _rich"""
+    if _MD is None:
+        return _rich(text)
+
+    # 裸 URL 先转成 markdown 链接，交给 markdown-it 统一处理
+    text = _URL_MD_RE.sub(r"[\1](\1)", text)
+    out = _MD.render(text)
+
+    mono = f"font-family:{FONT_MONO};"
+    accent = COLORS["accent"]
+    code_bg = COLORS["bg_subtle"]
+    border = COLORS["border_light"]
+    secondary = COLORS["text_secondary"]
+    repl = [
+        ("<a href=", f'<a style="color:{accent};text-decoration:none;" href='),
+        ("<h1>", '<h1 style="font-size:16.5px;font-weight:600;margin:10px 0 4px 0;">'),
+        ("<h2>", '<h2 style="font-size:15.5px;font-weight:600;margin:9px 0 4px 0;">'),
+        ("<h3>", '<h3 style="font-size:14.5px;font-weight:600;margin:8px 0 3px 0;">'),
+        ("<h4>", '<h4 style="font-size:13.5px;font-weight:600;margin:8px 0 3px 0;">'),
+        ("<p>", '<p style="margin:5px 0;">'),
+        ("<ul>", '<ul style="margin:5px 0 5px 20px;">'),
+        ("<ol>", '<ol style="margin:5px 0 5px 20px;">'),
+        ("<li>", '<li style="margin:2px 0;">'),
+        ("<blockquote>",
+         f'<blockquote style="color:{secondary};margin:6px 0;padding-left:10px;'
+         f'border-left:3px solid {border};">'),
+        ("<code>", f'<code style="{mono}background-color:{code_bg};">'),
+        ("<pre>", f'<pre style="{mono}background-color:{code_bg};padding:8px;">'),
+        ("<table",
+         f'<table cellspacing="0" cellpadding="5" style="border-collapse:collapse;'
+         f'font-size:12.5px;margin:6px 0;">'),
+        ("<th>", f'<th style="background-color:{code_bg};text-align:left;">'),
+        ("<td>", f'<td style="border-top:1px solid {border};">'),
+        ("<hr>", f'<hr style="border:none;border-top:1px solid {border};">'),
+    ]
+    for old, new in repl:
+        out = out.replace(old, new)
+    return out
 
 
 def _rich(text: str) -> str:
@@ -52,20 +106,30 @@ class Avatar(QLabel):
 
 
 class _CenteredColumn(QWidget):
-    """居中限宽列容器"""
+    """居中限宽列容器
+
+    注意列必须以 stretch=1 加入且自身为 Expanding：
+    QHBoxLayout 先按 sizeHint 分配，再加 stretch 分配剩余空间。换行 QLabel
+    的 sizeHint 出奇地窄（约 380px），若列不带 stretch，整列就会缩成
+    sizeHint 那么窄、两侧全留给弹簧——这正是「文字两边留白很大」的原因。
+    列拿到 stretch=1 后会一直撑满到 980px 上限，超出部分才轮到两侧弹簧。
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.addStretch(1)
         self.column = QWidget()
         self.column.setMaximumWidth(_CONTENT_MAX_WIDTH)
+        self.column.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
         self.column_layout = QVBoxLayout(self.column)
         self.column_layout.setContentsMargins(0, 0, 0, 0)
         self.column_layout.setSpacing(0)
-        outer.addWidget(self.column)
-        outer.addStretch(1)
+        outer.addStretch(0)
+        outer.addWidget(self.column, 1)
+        outer.addStretch(0)
 
 
 class MessageRow(_CenteredColumn):
@@ -91,7 +155,7 @@ class MessageRow(_CenteredColumn):
             row.setSpacing(12)
             row.addWidget(Avatar("文", "avatar_agent"), alignment=Qt.AlignmentFlag.AlignTop)
             row.addWidget(
-                _make_label("agent_text", _rich(text), rich=True),
+                _make_label("agent_text", _md(text), rich=True),
                 1,
                 alignment=Qt.AlignmentFlag.AlignTop,
             )
@@ -404,7 +468,7 @@ class ChatDisplay(QWidget):
         self.messages_container = QWidget()
         self.messages_container.setObjectName("messages_container")
         self.messages_layout = QVBoxLayout(self.messages_container)
-        self.messages_layout.setContentsMargins(24, 16, 24, 16)
+        self.messages_layout.setContentsMargins(14, 14, 14, 16)
         self.messages_layout.setSpacing(6)
         self.messages_layout.addStretch(1)
 
