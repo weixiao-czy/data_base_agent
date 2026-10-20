@@ -96,7 +96,7 @@ class SettingsDialog(QDialog):
         sci_layout.addRow("API Key:", self.sci_key_input)
 
         self.sci_url_input = QLineEdit()
-        self.sci_url_input.setPlaceholderText("https://scimaster.bohrium.com")
+        self.sci_url_input.setPlaceholderText("https://scimaster.bohrium.com/api/v1")
         sci_layout.addRow("Base URL:", self.sci_url_input)
 
         tabs.addTab(sci_tab, "SciMaster")
@@ -150,7 +150,7 @@ class SettingsDialog(QDialog):
         self.base_url_input.setText(c.get("openai_base_url", "https://models.sjtu.edu.cn/api/v1"))
         self.model_input.setText(c.get("openai_model", "deepseek-reasoner"))
         self.sci_key_input.setText(c.get("scimaster_api_key", ""))
-        self.sci_url_input.setText(c.get("scimaster_base_url", "https://scimaster.bohrium.com"))
+        self.sci_url_input.setText(c.get("scimaster_base_url", "https://scimaster.bohrium.com/api/v1"))
         self.max_rounds_spin.setValue(c.get("max_rounds", 10))
         self.search_limit_spin.setValue(c.get("search_default_limit", 10))
         self.search_timeout_spin.setValue(c.get("search_timeout", 30))
