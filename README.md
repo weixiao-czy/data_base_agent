@@ -1,6 +1,6 @@
 # 📚 文献检索需求翻译 Agent
 
-> 面向上海交通大学学生的智能文献检索辅助工具
+> 智能文献检索辅助工具，帮你把模糊的研究兴趣翻译成精准的检索计划
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -204,7 +204,7 @@ graph LR
 
 ##  团队
 
-上海交通大学图书馆文献检索辅助项目
+文献检索辅助项目
 
 ### 贡献者
 
