@@ -57,7 +57,7 @@ a = Analysis(
         'mcp',
         'mcp.client',
         'mcp.client.stdio',
-    ] + collect_submodules('mcp') + collect_submodules('litmap'),
+    ] + collect_submodules('mcp') + collect_submodules('litmap') + collect_submodules('markdown_it'),
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],
