@@ -3,12 +3,61 @@ LLM 客户端模块：封装大语言模型调用
 """
 
 import os
+import sys
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
 
-# 加载 .env 文件
-load_dotenv()
+
+def _env_candidates():
+    """按优先级列出可能放着 .env 的目录。
+
+    PyInstaller 打包后 sys.frozen 为真，python-dotenv 的 find_dotenv() 此时
+    改为从「当前工作目录」向上查找，而不是从 exe 或代码所在位置。双击 exe
+    通常把 cwd 设为 exe 目录还能侥幸找到，但经由桌面快捷方式 / 开始菜单启动
+    时 cwd 是桌面或 System32，.env 永远找不到 —— 密钥为空，上层再静默降级
+    成模拟 LLM，表现就是「看起来完全没调用大模型」。
+    这里改为显式枚举候选目录，不依赖调用方的 cwd。
+    """
+    dirs = []
+    if getattr(sys, "frozen", False):
+        # 打包后：exe 同级目录，用户最可能把 .env 放在这里
+        dirs.append(Path(sys.executable).parent)
+        _meipass = getattr(sys, "_MEIPASS", None)
+        if _meipass:
+            dirs.append(Path(_meipass))
+    # 源码运行：从本文件逐级向上，能覆盖项目根
+    dirs.extend(Path(__file__).resolve().parents)
+    # 最后兜底再试工作目录
+    dirs.append(Path.cwd())
+    dirs.extend(Path.cwd().parents)
+    return dirs
+
+
+def _load_env() -> Optional[str]:
+    """逐个候选目录找 .env，返回实际加载的文件路径（找不到返回 None）"""
+    seen = set()
+    for d in _env_candidates():
+        try:
+            d = d.resolve()
+        except OSError:
+            continue
+        if d in seen:
+            continue
+        seen.add(d)
+        f = d / ".env"
+        try:
+            if f.is_file():
+                load_dotenv(f, override=False)
+                return str(f)
+        except OSError:
+            continue
+    return None
+
+
+# 实际加载到的 .env 路径，供 GUI 诊断显示
+ENV_FILE = _load_env()
 
 
 class LLMClient(ABC):

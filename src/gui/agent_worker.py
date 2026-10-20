@@ -51,6 +51,19 @@ class AgentWorker(QThread):
         self.agent = None
         self._queue = queue.Queue()
         self._running = True
+        self._llm_init_error = ""
+        self._warned_keys = set()
+
+    def _warn_once(self, key: str, text: str):
+        """同一类警告只播报一次，避免每轮追问都刷屏"""
+        if key in self._warned_keys:
+            return
+        self._warned_keys.add(key)
+        self.agent_response.emit(text)
+
+    def _on_llm_error(self, msg: str):
+        """Clarifier 降级回调：把 LLM 调用失败的原因显示到对话里"""
+        self._warn_once("llm-call", f"⚠ {msg}")
 
     # ------------------------------------------------ 主线程调用（线程安全）
 
@@ -95,6 +108,7 @@ class AgentWorker(QThread):
 
         state_machine = StateMachine(max_rounds=max_rounds)
 
+        self._llm_init_error = ""
         if use_mock_llm:
             llm_client = MockLLMClient()
         else:
@@ -104,10 +118,14 @@ class AgentWorker(QThread):
                     base_url=self.config.get("openai_base_url"),
                     model=self.config.get("openai_model"),
                 )
-            except Exception:
+            except Exception as e:
+                # 不能再静默降级：打包成 exe 后是窗口程序，没有控制台，
+                # 用户看到的只是模板式回复，完全不知道模型没连上。
+                # 把原因记下来，稍后显示到对话里。
                 llm_client = MockLLMClient()
+                self._llm_init_error = str(e)
 
-        clarifier = Clarifier(llm_client=llm_client)
+        clarifier = Clarifier(llm_client=llm_client, on_error=self._on_llm_error)
         plan_card_gen = PlanCardGenerator(llm_client=llm_client)
 
         providers = []
@@ -140,6 +158,14 @@ class AgentWorker(QThread):
         if self.agent is None:
             self.status.emit("正在初始化…")
             self.init_agent()
+            if self._llm_init_error:
+                from llm.client import ENV_FILE
+                self.agent_response.emit(
+                    "⚠ 未能启用大模型，当前为「模拟 LLM 模式」，回复是固定模板。\n"
+                    f"原因：{self._llm_init_error}\n"
+                    f"已读取 .env：{ENV_FILE or '（未找到）'}\n"
+                    "请检查 .env 是否与程序在同一目录，且 OPENAI_API_KEY 为真实密钥。"
+                )
 
         sm = self.agent["state_machine"]
 

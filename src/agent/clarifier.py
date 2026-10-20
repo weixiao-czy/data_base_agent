@@ -11,16 +11,30 @@ from llm.prompt_manager import PromptManager
 class Clarifier:
     """对话澄清器：实现复述、分叉、收敛逻辑"""
     
-    def __init__(self, llm_client: Optional[LLMClient] = None):
+    def __init__(self, llm_client: Optional[LLMClient] = None, on_error=None):
         """
         初始化澄清器
         
         Args:
             llm_client: LLM 客户端，如果不提供则使用 MockLLMClient
+            on_error: 可选回调，LLM 调用失败降级时用来把原因播报给界面。
+                      GUI 是 console=False 的窗口程序，print 出来的内容
+                      用户根本看不到，只能走回调显示到对话里。
         """
         self.llm_client = llm_client or MockLLMClient()
         self.prompt_manager = PromptManager()
         self.interpretations = []
+        self.on_error = on_error
+    
+    def _report_llm_error(self, stage: str, exc: Exception):
+        """LLM 调用失败时统一播报：既打日志，也通知界面"""
+        msg = f"LLM 调用失败（{stage}），本次已降级为规则逻辑：{exc}"
+        print(msg)
+        if self.on_error:
+            try:
+                self.on_error(msg)
+            except Exception:
+                pass
     
     def restate(self, user_input: str) -> Dict[str, Any]:
         """
@@ -53,7 +67,7 @@ class Clarifier:
             }
         except Exception as e:
             # 降级到规则逻辑
-            print(f"LLM 调用失败，使用规则逻辑: {e}")
+            self._report_llm_error("需求复述", e)
             return self._rule_based_restate(user_input)
     
     def probe_key_fork(self, context: Dict[str, Any]) -> str:
@@ -97,7 +111,7 @@ class Clarifier:
             return response
         except Exception as e:
             # 降级到规则逻辑
-            print(f"LLM 调用失败，使用规则逻辑: {e}")
+            self._report_llm_error("关键分叉追问", e)
             return self._rule_based_probe(interpretation, current_round, history)
     
     def should_converge(self, round_count: int, max_rounds: int) -> bool:
