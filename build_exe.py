@@ -1,6 +1,6 @@
 """
 PyInstaller 打包脚本
-生成独立 exe 文件
+生成单文件 exe（无 _internal 目录）
 """
 
 import os
@@ -67,8 +67,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='LiteratureSearchAgent',
     debug=False,
     bootloader_ignore_signals=False,
@@ -81,31 +83,21 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='LiteratureSearchAgent',
-)
 '''
 
     with open(spec_file, "w", encoding="utf-8") as f:
         f.write(spec_content)
 
-    print("运行 PyInstaller 打包...")
+    print("运行 PyInstaller 打包（单文件模式）...")
     subprocess.run(
         [sys.executable, "-m", "PyInstaller", spec_file, "--clean", "--noconfirm"],
         cwd=project_dir,
     )
 
-    dist_dir = os.path.join(project_dir, "dist", "LiteratureSearchAgent")
-    if os.path.exists(dist_dir):
-        print(f"\n打包成功！exe 位于: {dist_dir}")
+    exe_path = os.path.join(project_dir, "dist", "LiteratureSearchAgent.exe")
+    if os.path.exists(exe_path):
+        size_mb = os.path.getsize(exe_path) / (1024 * 1024)
+        print(f"\n打包成功！单文件 exe: {exe_path} ({size_mb:.1f} MB)")
     else:
         print("\n打包失败，请检查错误信息。")
 
