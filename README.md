@@ -229,6 +229,7 @@ graph LR
 
 - [weixiao-czy](https://github.com/weixiao-czy) — 项目负责人
 - [SunSean-1145](https://github.com/SunSean-1145) — 团队成员
+- [CNOFNee](https://github.com/CNOFNee) — 团队成员
 
 ---
 
