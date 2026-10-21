@@ -50,6 +50,18 @@
 - 返回论文元数据、摘要、URL、DOI、BibTeX
 - 检索失败自动降级，用户无感知
 
+### 🗺️ 文献地图
+按项目周期组织文献，生成三层级思维导图：
+- **种子文献**：直接检索到的代表性论文，作为坐标原点
+- **六大维度**：综述与奠基、核心方法、任务与应用、数据集与评测、挑战与开放问题、前沿与最新进展
+- **两种策略**：LLM 模式（需 API Key，层级质量更高）/ 规则模式（离线可用）
+- **交互导图**：支持节点展开/折叠、滚轮缩放、拖拽平移、关键词搜索高亮
+- **多格式输出**：HTML（离线可用）、Markdown（可贴笔记）、JSON（便于二次开发）
+
+```bash
+python src/litmap_cli.py "retrieval augmented generation"
+```
+
 ---
 
 ## 🏗️ 项目结构
@@ -67,6 +79,13 @@ databaseagent/
 │   │   ├── scimaster_mcp.py   # SciMaster MCP 检索（优先）
 │   │   ├── real_search.py     # Crossref + arXiv（降级兜底）
 │   │   ── scimaster_cli.py   # SciMaster CLI（最后降级）
+│   ├── 🗺️ litmap/         # 文献地图
+│   │   ├── models.py          # 节点与地图数据结构
+│   │   ├── terms.py           # 概念词抽取（缩写/术语）
+│   │   ├── expander.py        # 维度发散（LLM/规则双策略）
+│   │   ├── builder.py         # 检索 + 去重 + 组装层级
+│   │   ├── render.py          # HTML/Markdown/JSON 渲染
+│   │   └── cli.py             # 命令行入口
 │   ├── 🎨 presentation/   # 结果展示
 │   │   ── render_results.py  # 格式化输出
 │   ├── 📝 prompts/        # 提示词模板
