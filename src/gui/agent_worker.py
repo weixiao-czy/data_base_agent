@@ -101,6 +101,18 @@ class AgentWorker(QThread):
             if kind == "input":
                 self._process(payload)
 
+    def _cfg(self, key: str):
+        """读配置项：空字符串归一为 None。
+
+        设置对话框保存时，没填的字段会以 "" 存进 config.json。
+        OpenAIClient 用 `is None` 区分「没传」和「显式传空」——
+        "" 会挡住 .env 里的真实密钥，表现为「.env 配好了却仍走模拟模式」。
+        """
+        v = self.config.get(key)
+        if isinstance(v, str):
+            v = v.strip()
+        return v or None
+
     def init_agent(self):
         """初始化 Agent（在工作线程中调用）"""
         max_rounds = self.config.get("max_rounds", 10)
@@ -114,9 +126,9 @@ class AgentWorker(QThread):
         else:
             try:
                 llm_client = OpenAIClient(
-                    api_key=self.config.get("openai_api_key"),
-                    base_url=self.config.get("openai_base_url"),
-                    model=self.config.get("openai_model"),
+                    api_key=self._cfg("openai_api_key"),
+                    base_url=self._cfg("openai_base_url"),
+                    model=self._cfg("openai_model"),
                 )
             except Exception as e:
                 # 不能再静默降级：打包成 exe 后是窗口程序，没有控制台，
@@ -130,8 +142,8 @@ class AgentWorker(QThread):
 
         providers = []
         mcp = SciMasterMCPProvider(
-            api_key=self.config.get("scimaster_api_key"),
-            base_url=self.config.get("scimaster_base_url"),
+            api_key=self._cfg("scimaster_api_key"),
+            base_url=self._cfg("scimaster_base_url"),
         )
         if mcp.is_available():
             providers.append(mcp)
@@ -159,12 +171,11 @@ class AgentWorker(QThread):
             self.status.emit("正在初始化…")
             self.init_agent()
             if self._llm_init_error:
-                from llm.client import ENV_FILE
                 self.agent_response.emit(
-                    "⚠ 未能启用大模型，当前为「模拟 LLM 模式」，回复是固定模板。\n"
-                    f"原因：{self._llm_init_error}\n"
-                    f"已读取 .env：{ENV_FILE or '（未找到）'}\n"
-                    "请检查 .env 是否与程序在同一目录，且 OPENAI_API_KEY 为真实密钥。"
+                    "⚠ 未能启用大模型，当前为「模拟模式」，回复是固定模板。\n\n"
+                    f"原因：{self._llm_init_error}\n\n"
+                    "解决方法：点击左下角「设置」→ LLM 配置，填入 API Key 后保存，"
+                    "立即生效、无需重启。留空的项会自动读取 .env（源码运行时）。"
                 )
 
         sm = self.agent["state_machine"]

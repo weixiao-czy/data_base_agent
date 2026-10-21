@@ -110,19 +110,11 @@ exe = EXE(
 
     exe_path = os.path.join(project_dir, "dist", "LiteratureSearchAgent.exe")
     if os.path.exists(exe_path):
-        # .env 不打进包内（避免把密钥固化到二进制里，分享时容易泄漏），
-        # 改为复制到 exe 同级目录。程序启动时会优先读那里。
-        env_src = os.path.join(project_dir, ".env")
-        if os.path.exists(env_src):
-            import shutil
-            shutil.copy2(env_src, os.path.join(os.path.dirname(exe_path), ".env"))
-            print("\n已把 .env 复制到 exe 同级目录。")
-            print("注意：该文件包含 API 密钥，分享前请先删除它。")
-        else:
-            print("\n未找到 .env —— exe 将无法调用大模型，只能以模拟模式运行。")
-            print("请复制 .env.example 为 .env 并填入密钥。")
+        # .env 不打进包内、也不复制到 exe 旁边（密钥随安装包外发有泄漏风险）。
+        # 用户在 GUI 左下角「设置」里填入 Key，保存到 ~/.databaseagent/config.json。
         size_mb = os.path.getsize(exe_path) / (1024 * 1024)
         print(f"\n打包成功！单文件 exe: {exe_path} ({size_mb:.1f} MB)")
+        print("提示：API Key 在 exe 内「设置」页配置，无需在 exe 旁放 .env。")
     else:
         print("\n打包失败，请检查错误信息。")
 

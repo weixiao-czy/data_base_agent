@@ -257,6 +257,7 @@ class MainWindow(QMainWindow):
         self._load_conversations()
         self._ensure_worker()
         self._new_conversation()
+        self.header_status.setText(self._idle_status())
 
     # ------------------------------------------------ UI 构建
 
@@ -559,7 +560,17 @@ class MainWindow(QMainWindow):
     def _set_busy(self, busy: bool):
         self._busy = busy
         self.send_btn.setEnabled(not busy)
-        self.header_status.setText("Waiting for reply…" if busy else "就绪")
+        self.header_status.setText("Waiting for reply…" if busy else self._idle_status())
+
+    def _llm_configured(self) -> bool:
+        """LLM Key 是否可用：设置页优先，留空回落到 .env / 环境变量"""
+        key = (self._config.get("openai_api_key") or "").strip()
+        return bool(key) or bool(os.environ.get("OPENAI_API_KEY", "").strip())
+
+    def _idle_status(self) -> str:
+        if self._llm_configured():
+            return "就绪"
+        return "未配置 API Key · 点左下角「设置」"
 
     def _on_status(self, text: str):
         self.chat_display.show_thinking(text)
@@ -622,6 +633,7 @@ class MainWindow(QMainWindow):
             self._config = dialog.get_config()
             if self._worker:
                 self._worker.update_config(self._config)
+            self.header_status.setText(self._idle_status())
 
     def _export_results(self):
         conv = self._conversations.get(self._current_conv_id)

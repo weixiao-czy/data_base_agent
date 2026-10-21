@@ -82,6 +82,10 @@ class SettingsDialog(QDialog):
         self.model_input.setPlaceholderText("deepseek-reasoner")
         llm_layout.addRow("模型:", self.model_input)
 
+        hint = QLabel("保存后立即生效，无需重启；留空的项会自动读取 .env 配置。")
+        hint.setWordWrap(True)
+        llm_layout.addRow("", hint)
+
         tabs.addTab(llm_tab, "LLM 配置")
 
         # --- SciMaster 配置 ---
