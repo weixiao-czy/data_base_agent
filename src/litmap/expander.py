@@ -106,6 +106,19 @@ ASPECT_SPECS = [
 
 ASPECT_LABELS = {s["key"]: s["label"] for s in ASPECT_SPECS}
 
+# 中文主题（Crossref 也收录大量中文期刊文献）要用中文修饰词构造检索式，
+# 否则会拼出「深度学习 survey」这种中英混排，接口几乎全部返回空。
+ASPECT_TEMPLATES_CN = {
+    "survey": [("综述", "综述总览"), ("系统综述", "系统综述"), ("文献回顾", "文献回顾")],
+    "method": [("方法", "方法总览"), ("模型", "技术框架"), ("算法", "算法路线")],
+    "task": [("应用", "应用场景"), ("临床", "案例研究"), ("实践", "实践落地")],
+    "data": [("数据集", "数据集"), ("基准", "评测基准"), ("指标", "评价指标")],
+    "challenge": [("挑战", "主要挑战"), ("局限", "局限性"), ("开放问题", "开放问题")],
+    "frontier": [("最新进展", "最新进展"), ("前沿", "前沿综述"), ("2025", "年度动态")],
+}
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fa5]")
+
 
 class RuleExpander:
     """无 LLM 时的规则发散：概念词 × 维度模板"""
@@ -142,11 +155,15 @@ class RuleExpander:
         plans: List[AspectPlan] = []
         used: set = set()
         cursor = 0
+        use_cn = bool(_CJK_RE.search(topic))
 
         for spec in ASPECT_SPECS:
+            templates = (
+                ASPECT_TEMPLATES_CN[spec["key"]] if use_cn else spec["templates"]
+            )
             plan = AspectPlan(key=spec["key"], label=spec["label"], note=spec["note"])
             for j in range(self.topics_per_aspect):
-                mod_en, label_cn = spec["templates"][j % len(spec["templates"])]
+                mod_en, label_cn = templates[j % len(templates)]
 
                 # 依次取尚未使用的概念词：保证不同维度的子主题不重复，
                 # 否则六个分支会长得一模一样，失去「层级」的意义

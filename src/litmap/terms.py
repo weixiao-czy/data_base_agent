@@ -240,11 +240,57 @@ def extract_title_terms(
     return [t for t, _ in out[:top_k]]
 
 
+# 中文主题的口语外壳：用户常写「我想研究 X 的应用」，这些词进了检索式只会
+# 稀释关键词，Crossref / arXiv 对整句的匹配是模糊的，必须剥掉。
+_CJK_LEAD_RE = re.compile(
+    r"^(?:我(?:们)?(?:想|打算|计划|准备|希望|要|正在)?(?:研究|做|了解|关注|探索|分析|学习)|"
+    r"帮(?:我|忙)?(?:研究|找|查|看看)|关于|有关|请问|如何|怎么)"
+)
+_CJK_TAIL_RE = re.compile(
+    r"(?:的)?(?:相关)?(?:研究|应用|工作|文献|方向|课题|领域|进展|问题|方法)+$"
+)
+_CJK_SPLIT_RE = re.compile(r"[在的中与和及或、，,；;：:（）()\s]+")
+# 口语动词后常见的虚词尾巴：「了解一下」「看看这方面的…」
+_CJK_LEAD_FILLER_RE = re.compile(r"^(?:一下|一点|一些|下|一点点的?)")
+
+
+def _cjk_topic_terms(topic: str) -> List[str]:
+    """中文主题 -> 若干检索片段
+
+    「我想研究深度学习在医学影像诊断中的应用」应拆成
+    ["深度学习", "医学影像诊断"]，而不是整句丢给检索接口。
+    不做真正的分词（无词典依赖），只剥口语外壳 + 按连接词切分，
+    切出来的片段仍是完整名词短语，检索效果足够。
+    """
+    text = topic.strip()
+    text = _CJK_LEAD_RE.sub("", text).strip()
+    # 外壳可能叠两层，例如「我想了解一下…」
+    text = _CJK_LEAD_RE.sub("", text).strip()
+    text = _CJK_LEAD_FILLER_RE.sub("", text).strip()
+    stripped = _CJK_TAIL_RE.sub("", text).strip()
+    # 只剥到还剩内容为止，避免把「医学影像」这类本身就是名词的主题剥空
+    if len(stripped) >= 4:
+        text = stripped
+
+    parts = [p.strip() for p in _CJK_SPLIT_RE.split(text) if p.strip()]
+    parts = [p for p in parts if len(p) >= 2 and p not in _CJK_FILLER]
+    if not parts:
+        return [text] if text else []
+    return parts
+
+
+# 切分后没有领域指向的碎片
+_CJK_FILLER = {
+    "最新", "一些", "相关", "这个", "那个", "内容", "东西", "方面",
+    "情况", "部分", "基础", "初步", "简单",
+}
+
+
 def topic_terms(topic: str) -> List[str]:
     """把用户输入的主题拆成词，用于构造检索式"""
     terms = _tokens(topic)
     terms = [t for t in terms if t not in STOPWORDS and len(t) >= 2]
     if terms:
         return terms
-    # 中文主题：整句作为一个检索单元
-    return [topic.strip()] if topic.strip() else []
+    # 中文主题：剥掉口语外壳后按连接词切分
+    return _cjk_topic_terms(topic)

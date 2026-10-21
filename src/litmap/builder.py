@@ -18,6 +18,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .expander import ASPECT_LABELS, make_expander
+from .terms import topic_terms
 from .models import (
     KIND_ASPECT,
     KIND_ROOT,
@@ -115,14 +116,32 @@ class LiteratureMapBuilder:
         queries_used = 1  # 种子检索已算一次
         reused = 0
 
+        # 预算不足时按比例分配子方向，而不是让前面的维度吃满、末尾维度只剩
+        # 一个空壳节点（用户会以为「前沿」这个方向真的没有文献）。
+        total_topics = sum(len(a.topics) for a in aspects) or 1
+        budget = max(self.max_queries - 1, 1)
+        budget_warned = False
+
         for aspect in aspects:
+            if queries_used >= self.max_queries:
+                if not budget_warned:
+                    errors.append(f"已达检索上限 {self.max_queries}，跳过剩余方向")
+                    budget_warned = True
+                continue
+
             aspect_node = root.new_child(
                 aspect.label, kind=KIND_ASPECT,
                 note=aspect.note or ASPECT_LABELS.get(aspect.key, ""),
             )
-            for tp in aspect.topics:
+            quota = (
+                max(1, budget * len(aspect.topics) // total_topics)
+                if total_topics > budget else len(aspect.topics)
+            )
+            for tp in aspect.topics[:quota]:
                 if queries_used >= self.max_queries:
-                    errors.append(f"已达检索上限 {self.max_queries}，跳过剩余方向")
+                    if not budget_warned:
+                        errors.append(f"已达检索上限 {self.max_queries}，跳过剩余方向")
+                        budget_warned = True
                     break
 
                 self._progress(f"      · {aspect.label} / {tp.label}  ←  {tp.query}")
@@ -137,17 +156,24 @@ class LiteratureMapBuilder:
                 )
 
                 kept: List[Dict[str, Any]] = []
+                dup = 0
                 for p in results:
                     key = _paper_key(p)
                     if key in seen:
                         reused += 1
+                        dup += 1
                         continue
                     seen.add(key)
                     kept.append(self._decorate(p, tp.query))
 
                 topic_node.papers = kept
                 if not kept:
-                    topic_node.note += "（该方向暂无新增文献，可能已被上层覆盖）"
+                    # 区分「接口没线索」和「线索全被去重吃掉」：后者说明检索本身
+                    # 成功了，只是语料池小而集中，不然用户会误判成功能坏了。
+                    if dup:
+                        topic_node.note += f"（命中 {dup} 篇，均已在图中其它分支列出）"
+                    else:
+                        topic_node.note += "（该方向暂时没有检索到文献）"
 
         # 清理：没有任何文献的分支会让导图显得空，但保留结构以便用户自己补
         self._progress("[4/4] 组装层级结构")
@@ -167,17 +193,22 @@ class LiteratureMapBuilder:
     # ------------------------------------------------------------ helpers
 
     def _resolve_search_topic(self, topic: str) -> str:
-        """Crossref / arXiv 以英文索引为主，中文主题直接检索基本查不到东西
+        """把用户写的主题变成可执行的检索主题
 
-        有大模型时自动翻译成英文检索用语；没有就明确告知用户，避免他拿到
-        一张全是空节点的导图却不知道原因。
+        中文主题有两种处理：
+          - 有大模型：翻译成英文检索用语（英文库命中率最高）
+          - 没有大模型：剥掉「我想研究…的应用」这类口语外壳，留下名词短语。
+            Crossref 收录了大量中文期刊文献，中文检索式是有效的；
+            但整句直接丢进去只会匹配到泛泛的综述，必须先把外壳剥掉。
         """
-        if not _CJK_RE.search(topic) or self.llm is None:
-            if _CJK_RE.search(topic):
-                self._progress(
-                    "      ⚠ 检测到中文主题：Crossref/arXiv 以英文索引为主，"
-                    "建议换成英文主题（配置 OPENAI_API_KEY 后可自动翻译）"
-                )
+        if not _CJK_RE.search(topic):
+            return topic
+
+        if self.llm is None:
+            cleaned = " ".join(topic_terms(topic)[:4]).strip()
+            if cleaned and cleaned != topic:
+                self._progress(f"      已简化为检索式：{cleaned}")
+                return cleaned
             return topic
 
         try:
@@ -192,7 +223,10 @@ class LiteratureMapBuilder:
                 self._progress(f"      已自动翻译为检索用语：{eng}")
                 return eng
         except Exception as e:  # noqa: BLE001
-            self._progress(f"      主题翻译失败（{e}），按原文检索")
+            self._progress(f"      主题翻译失败（{e}），改用中文检索式")
+            cleaned = " ".join(topic_terms(topic)[:4]).strip()
+            if cleaned:
+                return cleaned
         return topic
 
     def _safe_search(
