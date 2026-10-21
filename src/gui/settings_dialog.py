@@ -133,11 +133,14 @@ class SettingsDialog(QDialog):
 
         self.cancel_btn = QPushButton("取消")
         self.cancel_btn.setObjectName("cancel_btn")
+        self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
 
         self.save_btn = QPushButton("保存")
         self.save_btn.setObjectName("save_btn")
+        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.save_btn.setDefault(True)
         self.save_btn.clicked.connect(self._save)
         btn_layout.addWidget(self.save_btn)
 

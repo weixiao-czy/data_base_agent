@@ -97,6 +97,7 @@ class ConversationRow(QWidget):
     def __init__(self, conv_id: str, title: str, on_delete, parent=None):
         super().__init__(parent)
         self.conv_id = conv_id
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 0, 6, 0)
         layout.setSpacing(2)
@@ -328,11 +329,14 @@ class MainWindow(QMainWindow):
 
         card = QFrame()
         card.setObjectName("input_card")
+        card.setProperty("focused", "false")
         shadow = QGraphicsDropShadowEffect(card)
         shadow.setBlurRadius(28)
         shadow.setOffset(0, 3)
         shadow.setColor(QColor(0, 0, 0, 26))
         card.setGraphicsEffect(shadow)
+        self.input_card = card
+        self._input_shadow = shadow
 
         cl = QVBoxLayout(card)
         cl.setContentsMargins(16, 12, 12, 10)
@@ -493,15 +497,32 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------ 消息收发
 
     def eventFilter(self, obj, event):
-        if obj is self.message_input and event.type() == QEvent.Type.KeyPress:
-            key = event.key()
-            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                    self.message_input.insertPlainText("\n")
-                else:
-                    self._send_message()
-                return True
+        if obj is self.message_input:
+            if event.type() == QEvent.Type.FocusIn:
+                self._set_input_focus(True)
+            elif event.type() == QEvent.Type.FocusOut:
+                self._set_input_focus(False)
+            elif event.type() == QEvent.Type.KeyPress:
+                key = event.key()
+                if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                        self.message_input.insertPlainText("\n")
+                    else:
+                        self._send_message()
+                    return True
         return super().eventFilter(obj, event)
+
+    def _set_input_focus(self, focused: bool):
+        """输入框聚焦：卡片描边变陶土色 + 阴影带上品牌色光晕"""
+        self.input_card.setProperty("focused", "true" if focused else "false")
+        self.input_card.style().unpolish(self.input_card)
+        self.input_card.style().polish(self.input_card)
+        if focused:
+            self._input_shadow.setBlurRadius(36)
+            self._input_shadow.setColor(QColor(217, 119, 87, 42))
+        else:
+            self._input_shadow.setBlurRadius(28)
+            self._input_shadow.setColor(QColor(0, 0, 0, 26))
 
     def _on_suggestion(self, text: str):
         if self._busy:

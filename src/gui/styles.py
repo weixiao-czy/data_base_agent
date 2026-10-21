@@ -1,21 +1,33 @@
 """
-设计系统 — 温暖中性色 + 陶土色点缀，参考成熟商业桌面应用
-间距基准 4px，字号阶梯 11/12/13/14/16/20
+设计系统 — 商业级三层架构
+
+1. 设计令牌（Tokens）：颜色 / 字阶 / 圆角 / 间距全部集中在顶部常量，
+   组件样式只引用令牌，不写死色值。
+2. 状态模型：每个可交互组件统一实现五态
+   normal → hover（加深一档）→ pressed（再加深一档，主按钮附带 1px 按压位移）
+   focus（陶土色焦点环）→ disabled（降饱和降对比）。
+   QSS 不支持 CSS transition，流畅感靠「同色相阶梯式加深」而非跳色。
+3. 组件样式块：GLOBAL → TITLEBAR → SIDEBAR → CHAT → MESSAGE → SETTINGS，
+   块内按「容器 → 交互控件 → 文字标签」排序。
 """
 
 COLORS = {
-    # 强调色（陶土色）
+    # 品牌色（陶土色阶梯）
     "accent": "#D97757",
     "accent_hover": "#C96442",
+    "accent_pressed": "#B6532F",
     "accent_soft": "#F7EBE5",
+    "accent_soft_hover": "#F1DFD2",
 
-    # 背景
+    # 背景层级（从底到顶）
     "bg_main": "#FFFFFF",
     "bg_titlebar": "#FAF9F7",
     "bg_sidebar": "#F5F4F0",
     "bg_subtle": "#F7F6F3",
+    "bg_card_hover": "#FBFAF7",
     "bg_user_bubble": "#F0EFE9",
     "bg_hover": "#ECEAE4",
+    "bg_pressed": "#E2E0D9",
     "bg_selected": "#E8E6DF",
 
     # 文字
@@ -26,13 +38,16 @@ COLORS = {
 
     # 边框
     "border": "#E7E5E0",
+    "border_hover": "#CFCDC5",
     "border_light": "#F0EEEA",
     "border_strong": "#D9D7D1",
 
-    # 状态
+    # 语义
     "success": "#3F8F5B",
     "warning": "#C98A2D",
     "error": "#C4483E",
+    "error_hover": "#B03A31",
+    "error_pressed": "#99322A",
 
     # 兼容旧键
     "primary": "#D97757",
@@ -41,6 +56,9 @@ COLORS = {
 
 FONT_FAMILY = "'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
 FONT_MONO = "'Cascadia Code', 'Consolas', 'Microsoft YaHei UI', monospace"
+
+# 圆角阶梯：控件 sm / 按钮 md / 卡片 lg / 气泡 xl
+RADIUS = {"sm": "6px", "md": "9px", "lg": "13px", "xl": "16px"}
 
 # ---------------------------------------------------------------- 全局
 
@@ -69,7 +87,7 @@ QToolTip {{
     border: none;
     padding: 5px 9px;
     font-size: 12px;
-    border-radius: 4px;
+    border-radius: {RADIUS['sm']};
 }}
 
 QScrollArea {{
@@ -92,6 +110,10 @@ QScrollBar::handle:vertical {{
 
 QScrollBar::handle:vertical:hover {{
     background: {COLORS['text_tertiary']};
+}}
+
+QScrollBar::handle:vertical:pressed {{
+    background: {COLORS['text_secondary']};
 }}
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -132,7 +154,7 @@ TITLEBAR_QSS = f"""
 #win_btn {{
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: {RADIUS['sm']};
     color: {COLORS['text_secondary']};
     font-size: 11px;
     min-width: 40px;
@@ -146,10 +168,15 @@ TITLEBAR_QSS = f"""
     color: {COLORS['text_primary']};
 }}
 
+#win_btn:pressed {{
+    background-color: {COLORS['bg_pressed']};
+    color: {COLORS['text_primary']};
+}}
+
 #win_close {{
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: {RADIUS['sm']};
     color: {COLORS['text_secondary']};
     font-size: 11px;
     min-width: 40px;
@@ -160,6 +187,11 @@ TITLEBAR_QSS = f"""
 
 #win_close:hover {{
     background-color: {COLORS['error']};
+    color: {COLORS['text_inverse']};
+}}
+
+#win_close:pressed {{
+    background-color: {COLORS['error_pressed']};
     color: {COLORS['text_inverse']};
 }}
 """
@@ -176,7 +208,7 @@ SIDEBAR_QSS = f"""
     background-color: {COLORS['accent']};
     color: {COLORS['text_inverse']};
     border: none;
-    border-radius: 9px;
+    border-radius: {RADIUS['md']};
     padding: 9px 14px;
     font-size: 13px;
     font-weight: 600;
@@ -188,7 +220,8 @@ SIDEBAR_QSS = f"""
 }}
 
 #new_chat_btn:pressed {{
-    background-color: {COLORS['accent_hover']};
+    background-color: {COLORS['accent_pressed']};
+    padding: 10px 14px 8px 14px;
 }}
 
 #section_title {{
@@ -235,7 +268,7 @@ SIDEBAR_QSS = f"""
 #conv_del_btn {{
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: {RADIUS['sm']};
     color: {COLORS['text_tertiary']};
     font-size: 10px;
 }}
@@ -243,6 +276,11 @@ SIDEBAR_QSS = f"""
 #conv_del_btn:hover {{
     background-color: #F4E0DC;
     color: {COLORS['error']};
+}}
+
+#conv_del_btn:pressed {{
+    background-color: #EDD3CD;
+    color: {COLORS['error_hover']};
 }}
 
 #sidebar_footer {{
@@ -263,6 +301,12 @@ SIDEBAR_QSS = f"""
 #footer_btn:hover {{
     background-color: {COLORS['bg_hover']};
     color: {COLORS['text_primary']};
+}}
+
+#footer_btn:pressed {{
+    background-color: {COLORS['bg_pressed']};
+    color: {COLORS['text_primary']};
+    padding: 9px 12px 7px 12px;
 }}
 """
 
@@ -309,6 +353,12 @@ CHAT_QSS = f"""
     color: {COLORS['text_primary']};
 }}
 
+#ghost_btn:pressed {{
+    background-color: {COLORS['bg_hover']};
+    color: {COLORS['text_primary']};
+    padding: 7px 11px 5px 11px;
+}}
+
 #ghost_btn:disabled {{
     color: {COLORS['text_tertiary']};
 }}
@@ -321,6 +371,10 @@ CHAT_QSS = f"""
     background-color: {COLORS['bg_main']};
     border: 1px solid {COLORS['border']};
     border-radius: 14px;
+}}
+
+#input_card[focused="true"] {{
+    border: 1px solid {COLORS['accent']};
 }}
 
 #message_input {{
@@ -355,6 +409,10 @@ CHAT_QSS = f"""
     background-color: {COLORS['accent_hover']};
 }}
 
+#send_btn:pressed {{
+    background-color: {COLORS['accent_pressed']};
+}}
+
 #send_btn:disabled {{
     background-color: {COLORS['border']};
     color: {COLORS['text_tertiary']};
@@ -372,7 +430,7 @@ MESSAGE_QSS = f"""
 
 #user_bubble {{
     background-color: {COLORS['bg_user_bubble']};
-    border-radius: 16px;
+    border-radius: {RADIUS['xl']};
     border: 1px solid {COLORS['border_light']};
 }}
 
@@ -441,6 +499,13 @@ MESSAGE_QSS = f"""
     background-color: {COLORS['accent_soft']};
 }}
 
+#suggestion_chip:pressed {{
+    border-color: {COLORS['accent_hover']};
+    color: {COLORS['text_primary']};
+    background-color: {COLORS['accent_soft_hover']};
+    padding: 11px 14px 9px 14px;
+}}
+
 #plan_card_widget {{
     background-color: {COLORS['bg_main']};
     border: 1px solid {COLORS['border']};
@@ -490,6 +555,7 @@ MESSAGE_QSS = f"""
 }}
 
 #paper_card:hover {{
+    background-color: {COLORS['bg_card_hover']};
     border-color: {COLORS['border_strong']};
 }}
 
@@ -573,6 +639,7 @@ QTabBar::tab:selected {{
 
 QTabBar::tab:hover {{
     color: {COLORS['text_primary']};
+    background-color: {COLORS['bg_subtle']};
 }}
 
 QLabel {{
@@ -591,6 +658,10 @@ QLineEdit {{
     selection-background-color: {COLORS['accent_soft']};
 }}
 
+QLineEdit:hover {{
+    border-color: {COLORS['border_hover']};
+}}
+
 QLineEdit:focus {{
     border-color: {COLORS['accent']};
 }}
@@ -601,6 +672,10 @@ QSpinBox {{
     border-radius: 8px;
     padding: 6px 10px;
     font-size: 13px;
+}}
+
+QSpinBox:hover {{
+    border-color: {COLORS['border_hover']};
 }}
 
 QSpinBox:focus {{
@@ -621,6 +696,11 @@ QSpinBox:focus {{
     background-color: {COLORS['accent_hover']};
 }}
 
+#save_btn:pressed {{
+    background-color: {COLORS['accent_pressed']};
+    padding: 10px 26px 8px 26px;
+}}
+
 #cancel_btn {{
     background-color: {COLORS['bg_main']};
     color: {COLORS['text_secondary']};
@@ -633,5 +713,12 @@ QSpinBox:focus {{
 #cancel_btn:hover {{
     background-color: {COLORS['bg_subtle']};
     color: {COLORS['text_primary']};
+    border-color: {COLORS['border_hover']};
+}}
+
+#cancel_btn:pressed {{
+    background-color: {COLORS['bg_hover']};
+    color: {COLORS['text_primary']};
+    padding: 10px 26px 8px 26px;
 }}
 """
