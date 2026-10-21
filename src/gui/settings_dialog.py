@@ -1,21 +1,31 @@
 """
 设置对话框 — 环境配置与常规设置
+
+外观与主窗口、ConfirmDialog 同一套语言：无边框圆角卡片 + 外投影 + 压暗遮罩，
+自绘标题行（标题 + 关闭），标题区可拖动。
 """
 
 import os
 import json
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QSpinBox, QCheckBox, QGroupBox, QFormLayout,
-    QTabWidget, QWidget, QMessageBox,
+    QPushButton, QSpinBox, QFrame, QFormLayout, QGraphicsDropShadowEffect,
+    QTabWidget, QWidget,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QColor
 
 from .styles import COLORS, SETTINGS_QSS
+from .confirm_dialog import Scrim
 
 # 配置文件路径（用户目录下）
 _CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".databaseagent")
 _CONFIG_FILE = os.path.join(_CONFIG_DIR, "config.json")
+
+# 卡片外侧留给阴影的空间
+_SHADOW_MARGIN = 22
+# 标题区高度：在这个范围内按住可以拖动窗口
+_DRAG_AREA = 78
 
 
 def load_config() -> dict:
@@ -42,31 +52,74 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("settings_dialog")
-        self.setWindowTitle("设置")
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(400)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.NoDropShadowWindowHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setModal(True)
         self.setStyleSheet(SETTINGS_QSS)
         self._config = load_config()
+        self._drag_pos = None
+        self._scrim = None
         self._setup_ui()
         self._load_values()
 
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+    # ---------------------------------------------------------- UI
 
-        # 标题栏
+    def _setup_ui(self):
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(
+            _SHADOW_MARGIN, _SHADOW_MARGIN, _SHADOW_MARGIN, _SHADOW_MARGIN
+        )
+        outer.setSpacing(0)
+
+        card = QFrame()
+        card.setObjectName("settings_card")
+        card.setMinimumSize(560, 402)
+        outer.addWidget(card)
+
+        shadow = QGraphicsDropShadowEffect(card)
+        shadow.setBlurRadius(40)
+        shadow.setOffset(0, 12)
+        shadow.setColor(QColor(28, 27, 24, 60))
+        card.setGraphicsEffect(shadow)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # ---------------- 标题行
+        head = QWidget()
+        hl = QHBoxLayout(head)
+        hl.setContentsMargins(22, 16, 14, 12)
+        hl.setSpacing(8)
+
         title = QLabel("设置")
         title.setObjectName("settings_title")
-        layout.addWidget(title)
+        hl.addWidget(title)
+        hl.addStretch(1)
 
-        # Tab 页
+        close_btn = QPushButton("✕")
+        close_btn.setObjectName("settings_close")
+        close_btn.setFixedSize(26, 26)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        close_btn.setToolTip("关闭")
+        close_btn.clicked.connect(self.reject)
+        hl.addWidget(close_btn)
+
+        layout.addWidget(head)
+
+        # ---------------- Tab 页
         tabs = QTabWidget()
-        layout.addWidget(tabs)
+        layout.addWidget(tabs, 1)
 
         # --- LLM 配置 ---
         llm_tab = QWidget()
         llm_layout = QFormLayout(llm_tab)
-        llm_layout.setContentsMargins(20, 16, 20, 16)
+        llm_layout.setContentsMargins(22, 18, 22, 16)
         llm_layout.setSpacing(12)
 
         self.api_key_input = QLineEdit()
@@ -91,7 +144,7 @@ class SettingsDialog(QDialog):
         # --- SciMaster 配置 ---
         sci_tab = QWidget()
         sci_layout = QFormLayout(sci_tab)
-        sci_layout.setContentsMargins(20, 16, 20, 16)
+        sci_layout.setContentsMargins(22, 18, 22, 16)
         sci_layout.setSpacing(12)
 
         self.sci_key_input = QLineEdit()
@@ -108,7 +161,7 @@ class SettingsDialog(QDialog):
         # --- 常规设置 ---
         general_tab = QWidget()
         general_layout = QFormLayout(general_tab)
-        general_layout.setContentsMargins(20, 16, 20, 16)
+        general_layout.setContentsMargins(22, 18, 22, 16)
         general_layout.setSpacing(12)
 
         self.max_rounds_spin = QSpinBox()
@@ -131,9 +184,12 @@ class SettingsDialog(QDialog):
 
         tabs.addTab(general_tab, "常规")
 
-        # --- 按钮 ---
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
+        # ---------------- 按钮行
+        btn_row = QWidget()
+        btn_layout = QHBoxLayout(btn_row)
+        btn_layout.setContentsMargins(22, 12, 22, 18)
+        btn_layout.setSpacing(8)
+        btn_layout.addStretch(1)
 
         self.cancel_btn = QPushButton("取消")
         self.cancel_btn.setObjectName("cancel_btn")
@@ -148,7 +204,63 @@ class SettingsDialog(QDialog):
         self.save_btn.clicked.connect(self._save)
         btn_layout.addWidget(self.save_btn)
 
-        layout.addLayout(btn_layout)
+        layout.addWidget(btn_row)
+
+    # ---------------------------------------------------------- 拖动
+
+    def mousePressEvent(self, event):
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and event.position().y() < _DRAG_AREA
+        ):
+            self._drag_pos = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._drag_pos is not None and event.buttons() == Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+        super().mouseReleaseEvent(event)
+
+    # ---------------------------------------------------------- 显示
+
+    def exec(self) -> int:
+        parent = self.parentWidget()
+        if parent is not None:
+            self._scrim = Scrim(parent)
+            self._scrim.show()
+            self._scrim.raise_()
+        try:
+            self.adjustSize()
+            self._center_on_parent()
+            return super().exec()
+        finally:
+            if self._scrim is not None:
+                self._scrim.hide()
+                self._scrim.setParent(None)
+                self._scrim.deleteLater()
+                self._scrim = None
+
+    def _center_on_parent(self):
+        parent = self.parentWidget()
+        if parent is None:
+            return
+        top_left = parent.mapToGlobal(QPoint(0, 0))
+        self.move(
+            top_left.x() + (parent.width() - self.width()) // 2,
+            top_left.y() + (parent.height() - self.height()) // 2,
+        )
+
+    # ---------------------------------------------------------- 配置
 
     def _load_values(self):
         """从配置加载值到输入框"""

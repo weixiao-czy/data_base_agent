@@ -662,15 +662,38 @@ MESSAGE_QSS = f"""
 
 SETTINGS_QSS = f"""
 #settings_dialog {{
+    background: transparent;
+}}
+
+#settings_card {{
     background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: {RADIUS['lg']};
 }}
 
 #settings_title {{
-    font-size: 17px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 600;
     color: {COLORS['text_primary']};
-    padding: 18px 24px 14px 24px;
     background: transparent;
+}}
+
+#settings_close {{
+    background: transparent;
+    border: none;
+    border-radius: {RADIUS['sm']};
+    color: {COLORS['text_tertiary']};
+    font-size: 14px;
+}}
+
+#settings_close:hover {{
+    background-color: {COLORS['bg_hover']};
+    color: {COLORS['text_primary']};
+}}
+
+#settings_close:pressed {{
+    background-color: {COLORS['bg_pressed']};
+    color: {COLORS['text_primary']};
 }}
 
 QTabWidget::pane {{
@@ -895,6 +918,15 @@ CONFIRM_DIALOG_QSS = f"""
 #confirm_icon {{
     background-color: #FBEAE7;
     color: {COLORS['error']};
+    border-radius: 11px;
+    font-family: {FONT_MONO};
+    font-size: 12px;
+    font-weight: 700;
+}}
+
+#confirm_icon_info {{
+    background-color: {COLORS['accent_soft']};
+    color: {COLORS['accent_pressed']};
     border-radius: 11px;
     font-family: {FONT_MONO};
     font-size: 12px;

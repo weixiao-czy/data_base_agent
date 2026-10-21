@@ -11,7 +11,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QListWidget, QListWidgetItem,
-    QTextEdit, QFrame, QFileDialog, QMessageBox, QStackedWidget,
+    QTextEdit, QFrame, QFileDialog, QStackedWidget,
     QStackedLayout, QGraphicsDropShadowEffect,
 )
 from PyQt6.QtCore import Qt, QEvent, QSize, QTimer
@@ -831,7 +831,11 @@ class MainWindow(QMainWindow):
     def _export_results(self):
         conv = self._conversations.get(self._current_conv_id)
         if not conv or not conv.get("search_results"):
-            QMessageBox.information(self, "提示", "当前对话没有检索结果。")
+            ConfirmDialog.info(
+                self,
+                title="还没有检索结果",
+                message="当前对话尚未完成检索。先确认需求翻译卡并开始检索，再来导出结果。",
+            )
             return
 
         path, _ = QFileDialog.getSaveFileName(
@@ -870,12 +874,16 @@ class MainWindow(QMainWindow):
                     f.write(f"\nBibTeX:\n{bibtex}\n")
                 f.write("\n" + "-" * 60 + "\n\n")
 
-        QMessageBox.information(self, "导出成功", f"已保存到:\n{path}")
+        self._show_toast(f"已导出 {os.path.basename(path)}", 2400)
 
     def _export_plan_card(self):
         conv = self._conversations.get(self._current_conv_id)
         if not conv or not conv.get("plan_card"):
-            QMessageBox.information(self, "提示", "当前对话没有需求翻译卡。")
+            ConfirmDialog.info(
+                self,
+                title="还没有需求翻译卡",
+                message="需求翻译卡在澄清结束后生成。先完成几轮问答，等卡片出来再导出。",
+            )
             return
 
         path, _ = QFileDialog.getSaveFileName(
@@ -914,7 +922,7 @@ class MainWindow(QMainWindow):
             for action in card.get("next_actions", []):
                 f.write(f"  - {action}\n")
 
-        QMessageBox.information(self, "导出成功", f"已保存到:\n{path}")
+        self._show_toast(f"已导出 {os.path.basename(path)}", 2400)
 
     def closeEvent(self, event):
         self._save_current_conversation()

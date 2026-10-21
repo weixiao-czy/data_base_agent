@@ -1,9 +1,12 @@
 """
-确认弹窗 — 破坏性操作前的二次确认
+确认弹窗 — 破坏性操作的二次确认 + 轻量信息提示
 
 不用 QMessageBox：系统弹窗的字体、圆角、按钮都跟主界面不是一套语言。
-这里用无边框圆角卡片 + 压暗遮罩自绘一个，令牌全部来自 styles.COLORS，
-尺寸克制（宽 392），默认焦点落在「取消」上——删除不可恢复，回车别删错东西。
+这里用无边框圆角卡片 + 压暗遮罩自绘，令牌全部来自 styles.COLORS。
+
+两种形态：
+- ask()  → 危险操作确认（红色确认按钮，默认焦点在「取消」，回车不删东西）
+- info() → 单纯告知（单按钮，陶土色，点哪都能关）
 """
 
 from PyQt6.QtCore import QEvent, QPoint, Qt
@@ -25,7 +28,7 @@ from .styles import CONFIRM_DIALOG_QSS
 _SHADOW_MARGIN = 22
 
 
-class _Scrim(QWidget):
+class Scrim(QWidget):
     """弹窗背后的压暗层，让卡片从界面里浮起来"""
 
     def __init__(self, parent):
@@ -49,14 +52,14 @@ class _Scrim(QWidget):
 
 
 class ConfirmDialog(QDialog):
-    """居中确认卡片：标题 + 说明 + 取消/确认"""
+    """居中卡片：标题 + 说明 + 按钮"""
 
     def __init__(
         self,
         title: str,
         message: str,
         confirm_text: str = "删除",
-        cancel_text: str = "取消",
+        cancel_text: str | None = "取消",
         danger: bool = True,
         parent=None,
     ):
@@ -97,7 +100,7 @@ class ConfirmDialog(QDialog):
         head.setSpacing(10)
 
         icon = QLabel("!" if danger else "i")
-        icon.setObjectName("confirm_icon")
+        icon.setObjectName("confirm_icon" if danger else "confirm_icon_info")
         icon.setFixedSize(22, 22)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         head.addWidget(icon, 0, Qt.AlignmentFlag.AlignTop)
@@ -124,11 +127,13 @@ class ConfirmDialog(QDialog):
         btns.setSpacing(8)
         btns.addStretch(1)
 
-        self.cancel_btn = QPushButton(cancel_text)
-        self.cancel_btn.setObjectName("confirm_cancel")
-        self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.cancel_btn.clicked.connect(self.reject)
-        btns.addWidget(self.cancel_btn)
+        self.cancel_btn = None
+        if cancel_text:
+            self.cancel_btn = QPushButton(cancel_text)
+            self.cancel_btn.setObjectName("confirm_cancel")
+            self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.cancel_btn.clicked.connect(self.reject)
+            btns.addWidget(self.cancel_btn)
 
         self.confirm_btn = QPushButton(confirm_text)
         self.confirm_btn.setObjectName("confirm_ok" if danger else "confirm_primary")
@@ -138,10 +143,15 @@ class ConfirmDialog(QDialog):
 
         cl.addLayout(btns)
 
-        # 回车走「取消」：破坏性操作不能被一个误触的回车确认掉
-        self.cancel_btn.setDefault(True)
-        self.confirm_btn.setAutoDefault(False)
-        self.cancel_btn.setFocus()
+        # 危险操作：回车走「取消」，别让一个误触的回车把东西删了
+        # 纯告知：只有一个按钮，它就当默认
+        if self.cancel_btn is not None:
+            self.cancel_btn.setDefault(True)
+            self.confirm_btn.setAutoDefault(False)
+            self.cancel_btn.setFocus()
+        else:
+            self.confirm_btn.setDefault(True)
+            self.confirm_btn.setFocus()
 
         self._scrim = None
 
@@ -159,7 +169,7 @@ class ConfirmDialog(QDialog):
     def exec(self) -> int:
         parent = self.parentWidget()
         if parent is not None:
-            self._scrim = _Scrim(parent)
+            self._scrim = Scrim(parent)
             self._scrim.show()
             self._scrim.raise_()
         try:
@@ -172,6 +182,8 @@ class ConfirmDialog(QDialog):
                 self._scrim.setParent(None)
                 self._scrim.deleteLater()
                 self._scrim = None
+
+    # ---------------------------------------------------------- 快捷调用
 
     @classmethod
     def ask(
@@ -186,3 +198,9 @@ class ConfirmDialog(QDialog):
         """一行调用：返回 True 表示用户确认"""
         dlg = cls(title, message, confirm_text, cancel_text, danger, parent)
         return dlg.exec() == QDialog.DialogCode.Accepted
+
+    @classmethod
+    def info(cls, parent, title: str, message: str, ok_text: str = "知道了"):
+        """一行调用：只告知，不返回选择结果"""
+        dlg = cls(title, message, ok_text, None, danger=False, parent=parent)
+        dlg.exec()
