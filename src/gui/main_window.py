@@ -5,25 +5,33 @@
 
 import os
 import json
+import webbrowser
 from datetime import datetime
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QListWidget, QListWidgetItem,
-    QTextEdit, QFrame, QFileDialog, QMessageBox,
-    QGraphicsDropShadowEffect,
+    QTextEdit, QFrame, QFileDialog, QMessageBox, QStackedWidget,
+    QStackedLayout, QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QEvent, QSize
+from PyQt6.QtCore import Qt, QEvent, QSize, QTimer
 from PyQt6.QtGui import QColor
 
 from .styles import (
     COLORS, GLOBAL_QSS, TITLEBAR_QSS, SIDEBAR_QSS, CHAT_QSS, MESSAGE_QSS,
+    MAP_QSS, CONFIRM_QSS, CONFIRM_DIALOG_QSS,
 )
-from .chat_widget import ChatDisplay
+from .chat_widget import ChatDisplay, OptionButtons
 from .agent_worker import AgentWorker
+from .confirm_dialog import ConfirmDialog
+from .map_panel import MapPanel, HAS_WEBENGINE
 from .settings_dialog import SettingsDialog, load_config
 
 _HISTORY_DIR = os.path.join(os.path.expanduser("~"), ".databaseagent", "conversations")
+
+# 输入框占位文案：点「其他（自己输入）」时切到自由输入态，发送后复原
+_INPUT_PLACEHOLDER = "描述你的研究兴趣，例如「我想研究扩散模型在图像生成中的最新进展」…"
+_INPUT_PLACEHOLDER_FREE = "在此补充说明，Enter 发送…"
 
 
 class TitleBar(QFrame):
@@ -92,20 +100,26 @@ class TitleBar(QFrame):
 
 
 class ConversationRow(QWidget):
-    """对话历史单行：标题 + 悬停删除按钮"""
+    """对话历史单行：标题 + 悬停删除按钮
+
+    点 ✕ 只发出删除请求，真正的二次确认交给 ConfirmDialog 弹窗完成——
+    确认要「看得见、躲不开」，行内小字容易被连着点过去。
+    """
 
     def __init__(self, conv_id: str, title: str, on_delete, parent=None):
         super().__init__(parent)
         self.conv_id = conv_id
+        self._on_delete = on_delete
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 0, 6, 0)
-        layout.setSpacing(2)
+
+        nl = QHBoxLayout(self)
+        nl.setContentsMargins(12, 0, 6, 0)
+        nl.setSpacing(2)
 
         self.label = QLabel(title)
         self.label.setObjectName("conv_row_label")
         self.label.setToolTip(title)
-        layout.addWidget(self.label, 1)
+        nl.addWidget(self.label, 1)
 
         self.del_btn = QPushButton("✕")
         self.del_btn.setObjectName("conv_del_btn")
@@ -114,8 +128,10 @@ class ConversationRow(QWidget):
         self.del_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.del_btn.setToolTip("删除对话")
         self.del_btn.hide()
-        self.del_btn.clicked.connect(lambda: on_delete(conv_id))
-        layout.addWidget(self.del_btn)
+        self.del_btn.clicked.connect(lambda: self._on_delete(self.conv_id))
+        nl.addWidget(self.del_btn)
+
+    # ---------------------------------------------------------- 交互
 
     def enterEvent(self, event):
         self.del_btn.show()
@@ -208,25 +224,44 @@ class Sidebar(QWidget):
                 row.set_selected(item.isSelected())
 
     def update_conversations(self, conversations: dict, current_id: str):
-        self.conv_list.blockSignals(True)
-        self.conv_list.clear()
-        for conv_id, conv in sorted(
-            conversations.items(),
-            key=lambda x: x[1].get("timestamp", ""),
-            reverse=True,
-        ):
-            title = conv.get("title", "新对话")
-            item = QListWidgetItem()
-            item.setSizeHint(QSize(0, 34))
-            item.setData(Qt.ItemDataRole.UserRole, conv_id)
-            self.conv_list.addItem(item)
-            self.conv_list.setItemWidget(
-                item, ConversationRow(conv_id, title, self._on_delete)
-            )
-            if conv_id == current_id:
-                self.conv_list.setCurrentItem(item)
-        self._refresh_selection()
-        self.conv_list.blockSignals(False)
+        # 保存并恢复原来的阻塞状态：外面可能已经在批量改列表，
+        # 这里无条件解阻塞会让「选中项变化」中途回调重建，删一行变删两行
+        was_blocked = self.conv_list.blockSignals(True)
+        try:
+            self.conv_list.clear()
+            for conv_id, conv in sorted(
+                conversations.items(),
+                key=lambda x: x[1].get("timestamp", ""),
+                reverse=True,
+            ):
+                title = conv.get("title", "新对话")
+                item = QListWidgetItem()
+                item.setSizeHint(QSize(0, 34))
+                item.setData(Qt.ItemDataRole.UserRole, conv_id)
+                self.conv_list.addItem(item)
+                self.conv_list.setItemWidget(
+                    item, ConversationRow(conv_id, title, self._on_delete)
+                )
+                if conv_id == current_id:
+                    self.conv_list.setCurrentItem(item)
+            self._refresh_selection()
+        finally:
+            self.conv_list.blockSignals(was_blocked)
+
+    def remove_conversation(self, conv_id: str):
+        """只摘掉一行，不重建整个列表——删除要即时可见"""
+        was_blocked = self.conv_list.blockSignals(True)
+        try:
+            for i in range(self.conv_list.count()):
+                item = self.conv_list.item(i)
+                if item.data(Qt.ItemDataRole.UserRole) == conv_id:
+                    widget = self.conv_list.itemWidget(item)
+                    self.conv_list.takeItem(i)
+                    if widget is not None:
+                        widget.deleteLater()
+                    break
+        finally:
+            self.conv_list.blockSignals(was_blocked)
 
     def _on_delete(self, conv_id: str):
         if self.delete_requested:
@@ -245,6 +280,7 @@ class MainWindow(QMainWindow):
 
         self.setStyleSheet(
             GLOBAL_QSS + TITLEBAR_QSS + SIDEBAR_QSS + CHAT_QSS + MESSAGE_QSS
+            + MAP_QSS + CONFIRM_QSS + CONFIRM_DIALOG_QSS
         )
 
         self._config = load_config()
@@ -282,7 +318,19 @@ class MainWindow(QMainWindow):
         self.sidebar.delete_requested = self._delete_conversation
         cl.addWidget(self.sidebar)
 
-        cl.addWidget(self._build_chat_panel(), 1)
+        # 对话区与文献地图分页切换：导图是画布型页面，需要整块宽度；
+        # 侧栏并排会把画布压成一条缝，所以用栈式切换而不是分割。
+        self.stack = QStackedWidget()
+        self.chat_panel = self._build_chat_panel()
+        self.stack.addWidget(self.chat_panel)
+
+        self.map_panel = MapPanel()
+        self.map_panel.closed.connect(self._on_map_closed)
+        self.map_panel.load_failed.connect(self._on_map_load_failed)
+        self.stack.addWidget(self.map_panel)
+
+        cl.addWidget(self.stack, 1)
+
         root.addWidget(content, 1)
 
     def _build_chat_panel(self) -> QWidget:
@@ -319,6 +367,7 @@ class MainWindow(QMainWindow):
         # 消息区
         self.chat_display = ChatDisplay()
         self.chat_display.suggestion_clicked.connect(self._on_suggestion)
+        self.chat_display.option_clicked.connect(self._on_option_clicked)
         pl.addWidget(self.chat_display, 1)
 
         # 输入区
@@ -345,7 +394,7 @@ class MainWindow(QMainWindow):
 
         self.message_input = QTextEdit()
         self.message_input.setObjectName("message_input")
-        self.message_input.setPlaceholderText("描述你的研究兴趣，例如「我想研究扩散模型在图像生成中的最新进展」…")
+        self.message_input.setPlaceholderText(_INPUT_PLACEHOLDER)
         self.message_input.setAcceptRichText(False)
         self.message_input.setFixedHeight(44)
         self.message_input.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -397,6 +446,8 @@ class MainWindow(QMainWindow):
             self._worker.status.connect(self._on_status)
             self._worker.error.connect(self._on_error)
             self._worker.finished.connect(self._on_finished)
+            self._worker.options_ready.connect(self._on_options_ready)
+            self._worker.map_ready.connect(self._on_map_ready)
             self._worker.start()
 
     # ------------------------------------------------ 对话管理
@@ -413,6 +464,8 @@ class MainWindow(QMainWindow):
         }
         self.chat_display.clear()
         self.chat_display.show_welcome()
+        # 换新对话时收起上一轮生成的导图，避免让人误以为它是当前对话的产物
+        self._leave_map_page()
         self.header_title.setText("新对话")
         self.sidebar.update_conversations(self._conversations, self._current_conv_id)
         if self._worker:
@@ -438,37 +491,101 @@ class MainWindow(QMainWindow):
                 self.chat_display.add_message(
                     msg["content"], is_user=(msg["role"] == "user")
                 )
+        panel = getattr(self, "map_panel", None)
+        if panel is not None and panel.isVisible():
+            self._leave_map_page()
         self.sidebar.update_conversations(self._conversations, conv_id)
         # 切换对话后重置 Agent（历史对话不支持续聊，从头开始）
         if self._worker:
             self._worker.submit_reset()
 
     def _delete_conversation(self, conv_id: str):
+        """删除对话：先弹窗确认，确认后才真的删
+
+        UI 上「列表行先摘掉、提示先弹出」的顺序不变，重活（清空聊天区 /
+        收起地图 / 重置 Agent）仍推到下一帧，确认后点完立刻看到结果。
+        """
         conv = self._conversations.get(conv_id)
         if not conv:
             return
         title = conv.get("title", "新对话")
-        answer = QMessageBox.question(
+
+        ok = ConfirmDialog.ask(
             self,
-            "删除对话",
-            f"确定删除「{title}」吗？此操作不可恢复。",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            title="删除这条对话？",
+            message=f"「{self._ellipsis(title, 24)}」的聊天记录将从本机移除，删除后无法恢复。",
+            confirm_text="删除",
+            cancel_text="取消",
+            danger=True,
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        if not ok:
             return
 
         self._conversations.pop(conv_id, None)
+
+        # 列表改动统一在一段「信号静默」里做完：删除会让选中项漂移，
+        # 若中途触发切对话，就会叠加一次重建，出现「删一行少两行」
+        lst = self.sidebar.conv_list
+        was_blocked = lst.blockSignals(True)
+        try:
+            self.sidebar.remove_conversation(conv_id)
+            if conv_id == self._current_conv_id:
+                self._current_conv_id = None
+                self._new_conversation()
+            else:
+                self.sidebar.update_conversations(
+                    self._conversations, self._current_conv_id
+                )
+        finally:
+            lst.blockSignals(was_blocked)
+
         try:
             os.remove(os.path.join(_HISTORY_DIR, f"{conv_id}.json"))
         except OSError:
             pass
 
-        if conv_id == self._current_conv_id:
-            self._current_conv_id = None
-            self._new_conversation()
-        else:
-            self.sidebar.update_conversations(self._conversations, self._current_conv_id)
+        self._show_toast(f"已删除「{self._ellipsis(title)}」")
+
+    # ------------------------------------------------ 轻提示
+
+    @staticmethod
+    def _ellipsis(text: str, limit: int = 14) -> str:
+        text = (text or "").strip()
+        return text if len(text) <= limit else text[: limit - 1] + "…"
+
+    def _show_toast(self, text: str, msec: int = 1700):
+        """底部浮一条提示，不拦截操作、自动消失——替代操作后的模态弹窗"""
+        old = getattr(self, "_toast", None)
+        if old is not None:
+            old.deleteLater()
+            self._toast = None
+
+        toast = QLabel(text, self)
+        toast.setObjectName("app_toast")
+        toast.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        toast.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        toast.adjustSize()
+
+        w = toast.sizeHint().width() + 4
+        h = toast.sizeHint().height()
+        x = max((self.width() - w) // 2, 12)
+        # 浮在输入框正上方，别压住输入区
+        anchor = self.input_card.mapTo(self, self.input_card.rect().topLeft()).y()
+        y = max(anchor - h - 12, 12)
+        toast.setGeometry(x, y, w, h)
+        toast.show()
+        toast.raise_()
+
+        self._toast = toast
+        QTimer.singleShot(msec, lambda: self._drop_toast(toast))
+
+    def _drop_toast(self, toast):
+        if getattr(self, "_toast", None) is toast:
+            self._toast = None
+        try:
+            toast.deleteLater()
+        except RuntimeError:  # 窗口已销毁
+            pass
 
     def _load_conversations(self):
         os.makedirs(_HISTORY_DIR, exist_ok=True)
@@ -532,30 +649,71 @@ class MainWindow(QMainWindow):
         self._send_message()
 
     def _send_message(self):
-        if self._busy:
-            return
+        """输入框发送（Enter 键 / 发送按钮 / 欢迎页建议）"""
         text = self.message_input.toPlainText().strip()
         if not text:
             return
 
-        self.chat_display.hide_welcome()
-        self.chat_display.add_message(text, is_user=True)
+        # 兼容命令行习惯：敲「1」「A」或完整选项文案，等同于点对应按钮。
+        # 否则 "1" 会被当成研究主题提交（真实踩过）。
+        hit = self.chat_display.match_option(text)
+        if hit is not None:
+            self.message_input.clear()
+            self.message_input.setFixedHeight(44)
+            self.message_input.setPlaceholderText(_INPUT_PLACEHOLDER)
+            self._on_option_clicked(*hit)
+            return
+
         self.message_input.clear()
         self.message_input.setFixedHeight(44)
+        self.message_input.setPlaceholderText(_INPUT_PLACEHOLDER)
+        self._dispatch(text, text)
+
+    def _on_option_clicked(self, key: str, label: str):
+        """点击选项按钮：key 与命令行里手敲的内容等价，label 只用于气泡展示"""
+        if key == OptionButtons.INPUT_KEY:
+            self._enter_free_input()
+            return
+        self._dispatch(label or key, key)
+
+    def _enter_free_input(self):
+        """「其他（自己输入）」：把焦点交回输入框，等用户自己打字
+
+        不锁选项组：误点「其他」时还能反悔回去点某个选项，只是输入框
+        先切到「补充说明」的提示语气。
+        """
+        if self._busy:
+            return
+        self.message_input.setPlaceholderText(_INPUT_PLACEHOLDER_FREE)
+        self.message_input.setFocus()
+        self.header_status.setText("等待你补充说明…")
+
+    def _dispatch(self, display: str, value: str):
+        """统一出口：display 进气泡，value 交给 Agent
+
+        点按钮时两者不同（气泡显示选项文案、下发的是选项键 "1"/"A"），
+        这样状态机无需区分「用户是点的还是敲的」，与 CLI 行为保持一致。
+        """
+        if self._busy or not display:
+            return
+
+        self.chat_display.hide_welcome()
+        self.chat_display.disable_options()
+        self.chat_display.add_message(display, is_user=True)
 
         conv = self._conversations.get(self._current_conv_id)
         if conv:
-            conv["messages"].append({"role": "user", "content": text})
+            conv["messages"].append({"role": "user", "content": display})
             conv["timestamp"] = datetime.now().isoformat()
             if conv["title"] == "新对话":
-                conv["title"] = text[:24]
+                conv["title"] = display[:24]
                 self.header_title.setText(conv["title"])
                 self.sidebar.update_conversations(self._conversations, self._current_conv_id)
 
         self._set_busy(True)
         self.chat_display.show_thinking()
         self._ensure_worker()
-        self._worker.submit(text)
+        self._worker.submit(value)
 
     def _set_busy(self, busy: bool):
         self._busy = busy
@@ -582,6 +740,41 @@ class MainWindow(QMainWindow):
         conv = self._conversations.get(self._current_conv_id)
         if conv:
             conv["messages"].append({"role": "agent", "content": text})
+
+    def _on_options_ready(self, options: list):
+        """Agent 给出可点击选项：渲染成按钮组"""
+        self.chat_display.add_options(options)
+
+    def _on_map_ready(self, html_path: str, topic: str):
+        """文献地图生成完毕：内嵌到右侧面板
+
+        QtWebEngine 缺失时退回外部浏览器，保证功能不断。
+        """
+        if not os.path.exists(html_path):
+            return
+        if not HAS_WEBENGINE:
+            webbrowser.open("file://" + os.path.abspath(html_path))
+            return
+
+        self.map_panel.show_map(html_path, topic)
+        self.stack.setCurrentWidget(self.map_panel)
+
+    def _on_map_closed(self):
+        # 关闭导图 = 回到对话页，焦点还给输入框
+        self._leave_map_page()
+        self.message_input.setFocus()
+
+    def _on_map_load_failed(self, html_path: str):
+        """内嵌页加载失败：退回系统浏览器，别让用户对着空白页"""
+        try:
+            webbrowser.open("file://" + os.path.abspath(html_path))
+        except Exception:  # noqa: BLE001 - 打不开浏览器也不该中断流程
+            pass
+
+    def _leave_map_page(self):
+        """回到对话页并释放导图页面"""
+        self.map_panel.clear()
+        self.stack.setCurrentWidget(self.chat_panel)
 
     def _on_plan_card_ready(self, card_dict: dict):
         self.chat_display.hide_thinking()

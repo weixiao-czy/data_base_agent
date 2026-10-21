@@ -444,16 +444,122 @@ class WelcomeView(_CenteredColumn):
         self.column_layout.addLayout(vbox)
 
 
+class OptionButtons(_CenteredColumn):
+    """可点击的选项组
+
+    取代命令行「敲 1 / 敲 A」的交互：Agent 的可选项直接渲染成按钮，
+    末尾固定留一个「其他（自己输入）」，把控制权交回输入框。
+    """
+
+    # (key, label)；key 为 "__input__" 表示需要用户自己打字补充
+    option_clicked = pyqtSignal(str, str)
+    INPUT_KEY = "__input__"
+
+    def __init__(self, options: list, parent=None):
+        super().__init__(parent)
+        self._locked = False
+        # (key, label, needs_input)：供输入框直接敲「1」「A」时反查
+        self._items = []
+
+        outer = QHBoxLayout()
+        outer.setContentsMargins(42, 2, 0, 8)
+        outer.setSpacing(0)
+
+        box = QWidget()
+        box.setMinimumWidth(280)
+        box.setMaximumWidth(620)
+        vbox = QVBoxLayout(box)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(5)
+
+        for opt in options:
+            key = str(opt.get("key", "")).strip()
+            label = str(opt.get("label", "")).strip()
+            if not label:
+                continue
+            self._items.append((key, label, bool(opt.get("needs_input"))))
+
+            if opt.get("needs_input"):
+                # 需要补充说明的选项：先切到输入框，不直接下发
+                btn = self._make_button(f"{key}.  {label}" if key else label,
+                                        "option_btn")
+                btn.clicked.connect(
+                    lambda _=False: self._pick(self.INPUT_KEY, "", True)
+                )
+            else:
+                btn = self._make_button(f"{key}.  {label}" if key else label,
+                                        "option_btn")
+                btn.clicked.connect(
+                    lambda _=False, k=key, l=label: self._pick(k, l, False)
+                )
+            vbox.addWidget(btn)
+
+        # 兜底的「其他」：永远放在最后
+        other = self._make_button("其他（自己输入）", "option_btn_other")
+        other.clicked.connect(lambda _=False: self._pick(self.INPUT_KEY, "", True))
+        vbox.addWidget(other)
+
+        outer.addWidget(box)
+        outer.addStretch(1)
+        self.column_layout.addLayout(outer)
+
+    @staticmethod
+    def _make_button(text: str, object_name: str) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setObjectName(object_name)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.setMinimumHeight(36)
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        return btn
+
+    def _pick(self, key: str, label: str, needs_input: bool):
+        if self._locked:
+            return
+        if needs_input:
+            # 「其他 / 需要说明」只是把焦点交回输入框，不算作答：
+            # 不锁这组按钮，用户误点后还能重新点某个选项。
+            self.option_clicked.emit(self.INPUT_KEY, "")
+            return
+        self.lock()
+        self.option_clicked.emit(key, label)
+
+    def lock(self):
+        """选定后锁死整组按钮，避免重复点击造成状态机错位"""
+        self._locked = True
+        self.setEnabled(False)
+
+    def match(self, text: str):
+        """把输入框里手敲的内容反查成选项，等价于点击该按钮
+
+        从命令行版过来的用户习惯直接敲「1」「A」，若不识别就会把 "1"
+        当成研究主题提交。命中返回 (key, label)，否则返回 None。
+        """
+        if self._locked or not self.isEnabled():
+            return None
+        t = text.strip()
+        if not t:
+            return None
+        for key, label, needs_input in self._items:
+            if not key:
+                continue
+            if t.lower() == key.lower() or t == label:
+                return (self.INPUT_KEY, "") if needs_input else (key, label)
+        return None
+
+
 class ChatDisplay(QWidget):
     """聊天显示区域"""
 
     suggestion_clicked = pyqtSignal(str)
+    option_clicked = pyqtSignal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("chat_area")
         self._thinking = None
         self._welcome = None
+        self._options = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -495,6 +601,35 @@ class ChatDisplay(QWidget):
         if at_bottom:
             self._scroll_to_bottom()
 
+    def add_options(self, options: list):
+        """渲染一组可点击选项（上一组自动失效）"""
+        if not options:
+            return
+        self.disable_options()
+        block = OptionButtons(options)
+        block.option_clicked.connect(self.option_clicked)
+        self._options = block
+        self._insert_widget(block)
+        # 选项是下一步的唯一入口，必须让它可见：不做「是否在底部」判断，
+        # 否则计划卡把按钮顶到折线以下，用户会以为界面卡住不动了。
+        self._scroll_to_bottom()
+
+    def disable_options(self):
+        """当前这组选项作废：变灰但留在原地，保留对话痕迹"""
+        if self._options is not None:
+            self._options.lock()
+            self._options = None
+
+    def match_option(self, text: str):
+        """输入框里敲的选项键 → (key, label)；没有可用选项时返回 None"""
+        block = self._options
+        if block is None:
+            return None
+        try:
+            return block.match(text)
+        except RuntimeError:  # 控件已被回收
+            return None
+
     def show_welcome(self):
         if self._welcome is not None:
             return
@@ -532,6 +667,7 @@ class ChatDisplay(QWidget):
     def clear(self):
         self.hide_thinking()
         self.hide_welcome()
+        self._options = None
         while self.messages_layout.count() > 1:
             item = self.messages_layout.takeAt(0)
             w = item.widget()
@@ -547,6 +683,14 @@ class ChatDisplay(QWidget):
         return sb.value() >= sb.maximum() - 140
 
     def _scroll_to_bottom(self):
-        QTimer.singleShot(0, lambda: self.scroll_area.verticalScrollBar().setValue(
-            self.scroll_area.verticalScrollBar().maximum()
-        ))
+        """滚到底。
+
+        为什么排两次：插入长内容（计划卡 / 文献卡片）后布局要下一帧才重算，
+        此时 maximum 还是旧值，只滚一次会停在半路——表现为「按钮被顶到看不见」。
+        """
+        def _do():
+            sb = self.scroll_area.verticalScrollBar()
+            sb.setValue(sb.maximum())
+
+        QTimer.singleShot(0, _do)
+        QTimer.singleShot(60, _do)

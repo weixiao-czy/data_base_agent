@@ -506,6 +506,63 @@ MESSAGE_QSS = f"""
     padding: 11px 14px 9px 14px;
 }}
 
+/* ---- 可点击选项（替代命令行敲 1 / 敲 A） ---- */
+
+#option_btn {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 10px;
+    color: {COLORS['text_primary']};
+    font-size: 13px;
+    padding: 8px 14px;
+    text-align: left;
+}}
+
+#option_btn:hover {{
+    border-color: {COLORS['accent']};
+    background-color: {COLORS['accent_soft']};
+}}
+
+#option_btn:pressed {{
+    border-color: {COLORS['accent_hover']};
+    background-color: {COLORS['accent_soft_hover']};
+    padding: 9px 14px 7px 14px;
+}}
+
+#option_btn:disabled {{
+    color: {COLORS['text_tertiary']};
+    background-color: {COLORS['bg_subtle']};
+    border-color: {COLORS['border_light']};
+}}
+
+#option_btn_other {{
+    background-color: transparent;
+    border: 1px dashed {COLORS['border_strong']};
+    border-radius: 10px;
+    color: {COLORS['text_secondary']};
+    font-size: 12.5px;
+    padding: 8px 14px;
+    text-align: left;
+}}
+
+#option_btn_other:hover {{
+    border-color: {COLORS['accent']};
+    color: {COLORS['accent']};
+    background-color: {COLORS['accent_soft']};
+}}
+
+#option_btn_other:pressed {{
+    background-color: {COLORS['accent_soft_hover']};
+    color: {COLORS['accent_hover']};
+    padding: 9px 14px 7px 14px;
+}}
+
+#option_btn_other:disabled {{
+    color: {COLORS['text_tertiary']};
+    border-color: {COLORS['border_light']};
+    background-color: transparent;
+}}
+
 #plan_card_widget {{
     background-color: {COLORS['bg_main']};
     border: 1px solid {COLORS['border']};
@@ -720,5 +777,201 @@ QSpinBox:focus {{
     background-color: {COLORS['bg_hover']};
     color: {COLORS['text_primary']};
     padding: 10px 26px 8px 26px;
+}}
+"""
+
+# ---------------------------------------------------------------- 内嵌文献地图
+MAP_QSS = f"""
+#map_panel {{
+    background-color: {COLORS['bg_main']};
+}}
+
+#map_header {{
+    background-color: {COLORS['bg_titlebar']};
+    border-bottom: 1px solid {COLORS['border']};
+}}
+
+#map_dot {{
+    color: {COLORS['accent']};
+    font-size: 13px;
+}}
+
+#map_title {{
+    color: {COLORS['text_primary']};
+    font-size: 13px;
+    font-weight: 600;
+}}
+
+#map_hint {{
+    background-color: {COLORS['accent_soft']};
+    color: {COLORS['accent_pressed']};
+    border-bottom: 1px solid {COLORS['border']};
+    padding: 10px 16px;
+    font-size: 12px;
+}}
+
+#map_action {{
+    background-color: transparent;
+    color: {COLORS['text_secondary']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 12px;
+}}
+
+#map_action:hover {{
+    background-color: {COLORS['accent_soft']};
+    color: {COLORS['accent_hover']};
+    border-color: {COLORS['accent']};
+}}
+
+#map_action:pressed {{
+    background-color: {COLORS['accent_soft_hover']};
+    color: {COLORS['accent_pressed']};
+}}
+
+#map_close {{
+    background-color: transparent;
+    color: {COLORS['text_secondary']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 12px;
+}}
+
+#map_close:hover {{
+    background-color: {COLORS['bg_hover']};
+    color: {COLORS['text_primary']};
+    border-color: {COLORS['border_hover']};
+}}
+
+#map_close:pressed {{
+    background-color: {COLORS['bg_pressed']};
+}}
+
+#map_body {{
+    background-color: {COLORS['bg_main']};
+}}
+
+#map_fallback {{
+    color: {COLORS['text_secondary']};
+    font-size: 13px;
+    padding: 28px;
+}}
+"""
+
+# ---------------------------------------------------------------- 轻提示
+#
+# 破坏性操作的二次确认已改为 ConfirmDialog 弹窗（见下方 CONFIRM_DIALOG_QSS），
+# 这里只保留不拦截操作、自动消失的轻提示。
+
+CONFIRM_QSS = f"""
+#app_toast {{
+    background-color: rgba(43, 42, 38, 0.94);
+    color: {COLORS['text_inverse']};
+    border-radius: {RADIUS['md']};
+    padding: 8px 16px;
+    font-size: 12.5px;
+}}
+"""
+
+# ---------------------------------------------------------------- 确认弹窗
+#
+# 破坏性操作的二次确认卡片：白底圆角 + 淡边框 + 外投影，按钮五态齐全。
+# 删除按钮用 error 色阶梯，和侧栏行内按钮同一套语义色。
+
+CONFIRM_DIALOG_QSS = f"""
+#confirm_card,
+#confirm_card * {{
+    font-family: {FONT_FAMILY};
+}}
+
+#confirm_card {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: {RADIUS['lg']};
+}}
+
+#confirm_icon {{
+    background-color: #FBEAE7;
+    color: {COLORS['error']};
+    border-radius: 11px;
+    font-family: {FONT_MONO};
+    font-size: 12px;
+    font-weight: 700;
+}}
+
+#confirm_title {{
+    color: {COLORS['text_primary']};
+    font-size: 14.5px;
+    font-weight: 600;
+}}
+
+#confirm_message {{
+    color: {COLORS['text_secondary']};
+    font-size: 13px;
+}}
+
+#confirm_cancel,
+#confirm_ok,
+#confirm_primary {{
+    border-radius: {RADIUS['md']};
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 20px;
+    min-width: 46px;
+}}
+
+#confirm_cancel {{
+    background-color: {COLORS['bg_subtle']};
+    border: 1px solid {COLORS['border']};
+    color: {COLORS['text_secondary']};
+}}
+
+#confirm_cancel:hover {{
+    background-color: {COLORS['bg_hover']};
+    border-color: {COLORS['border_hover']};
+    color: {COLORS['text_primary']};
+}}
+
+#confirm_cancel:pressed {{
+    background-color: {COLORS['bg_pressed']};
+    border-color: {COLORS['border_strong']};
+}}
+
+#confirm_ok {{
+    background-color: {COLORS['error']};
+    border: 1px solid {COLORS['error']};
+    color: {COLORS['text_inverse']};
+}}
+
+#confirm_ok:hover {{
+    background-color: {COLORS['error_hover']};
+    border-color: {COLORS['error_hover']};
+}}
+
+#confirm_ok:pressed {{
+    background-color: {COLORS['error_pressed']};
+    border-color: {COLORS['error_pressed']};
+    padding-top: 8px;
+    padding-bottom: 6px;
+}}
+
+#confirm_primary {{
+    background-color: {COLORS['accent']};
+    border: 1px solid {COLORS['accent']};
+    color: {COLORS['text_inverse']};
+}}
+
+#confirm_primary:hover {{
+    background-color: {COLORS['accent_hover']};
+    border-color: {COLORS['accent_hover']};
+}}
+
+#confirm_primary:pressed {{
+    background-color: {COLORS['accent_pressed']};
+    border-color: {COLORS['accent_pressed']};
+    padding-top: 8px;
+    padding-bottom: 6px;
 }}
 """

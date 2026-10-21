@@ -5,6 +5,7 @@ Agent 后台工作线程
 
 import sys
 import os
+import re
 import queue
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -21,6 +22,54 @@ from search.real_search import RealSearchProvider
 from search.scimaster_mcp import SciMasterMCPProvider
 from search.scimaster_cli import SciMasterCLIProvider
 from llm.client import OpenAIClient, MockLLMClient
+
+
+# ---------------------------------------------------------------- 选项拆分
+# 命令行版让用户敲 "1" / "A"，GUI 版要把同样的选项渲染成按钮。
+# 这里只做「识别 + 拆分」，不改下发给 Agent 的取值语义：返回的 key 仍是
+# "1" / "A"，点按钮回传后与手敲完全等价，状态机无需感知输入方式。
+
+_OPT_LINE_RE = re.compile(r"^\s*([A-Za-z]|\d{1,2})\s*[.、．)）]\s*(\S.*)$")
+_MARKER_RE = re.compile(r"^\s*[\[【]\s*(说明|问题|选项|要求|注意)\s*[\]】]\s*[：:]?\s*")
+_HINT_KEYS = ("输入", "可选", "也可以", "直接")
+
+
+def _is_hint_line(line: str) -> bool:
+    """括号包裹的提示句（如「（输入数字选择，或补充说明）」）不进正文"""
+    s = line.strip()
+    if not (s.startswith("（") or s.startswith("(")):
+        return False
+    return any(k in s for k in _HINT_KEYS)
+
+
+def split_options(text: str):
+    """
+    把带编号/字母的选项行从正文里拆出来
+
+    Args:
+        text: 形如 "你更接近哪个方向？\\n1. 理论研究\\n2. 应用实践" 或
+              "[说明]\\n……\\n[选项]\\nA. 交互设计\\nB. 用户体验" 的文本
+
+    Returns:
+        (body, options)
+            body:    去掉选项行与提示行后的正文
+            options: [{"key": "1", "label": "理论研究"}, ...]
+    """
+    body_lines = []
+    options = []
+
+    for raw in text.splitlines():
+        line = _MARKER_RE.sub("", raw).strip()
+        if not line or _is_hint_line(line):
+            continue
+        m = _OPT_LINE_RE.match(line)
+        if m:
+            options.append({"key": m.group(1), "label": m.group(2).strip()})
+        else:
+            body_lines.append(line)
+
+    body = re.sub(r"\n{3,}", "\n\n", "\n".join(body_lines)).strip()
+    return body, options
 
 
 class AgentWorker(QThread):
@@ -44,6 +93,11 @@ class AgentWorker(QThread):
     round_info = pyqtSignal(str)
     finished = pyqtSignal()
     error = pyqtSignal(str)
+    # 可点击选项：[{"key": "1", "label": "确认，开始检索", "needs_input": False}, ...]
+    # key 与命令行里手敲的内容一致，needs_input=True 表示该项需要用户补充说明
+    options_ready = pyqtSignal(list)
+    # 文献地图生成完毕：(html 路径, 主题)。由主窗口决定内嵌展示还是外部打开
+    map_ready = pyqtSignal(str, str)
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
@@ -236,11 +290,14 @@ class AgentWorker(QThread):
 
         sm.add_to_history("agent", restatement, {"options": options})
 
-        msg = f"{restatement}\n\n你更接近哪个方向？\n"
-        for i, opt in enumerate(options, 1):
-            msg += f"{i}. {opt}\n"
-        msg += "\n（输入数字选择，或补充说明）"
-        self.agent_response.emit(msg)
+        # 复述文案有的来源已经自带问句（Mock 模板、大模型都可能带），别再补一遍
+        body = restatement.strip()
+        if not body.endswith(("？", "?")):
+            body = f"{body}\n\n你更接近哪个方向？"
+        self.agent_response.emit(body)
+        self.options_ready.emit(
+            [{"key": str(i), "label": opt} for i, opt in enumerate(options, 1)]
+        )
         sm.transition(AgentState.CONFIRM_INTERPRETATION)
 
     def _handle_confirm(self, text: str):
@@ -282,8 +339,13 @@ class AgentWorker(QThread):
         sm.add_to_history("agent", question)
         sm.increment_round()
 
-        msg = f"（还剩 {remaining} 轮澄清机会）\n{question}\n\n（输入选项字母，或说「跳过」直接生成计划）"
-        self.agent_response.emit(msg)
+        # 追问文本里带着 A/B/C 选项（LLM 模式还带 [说明]/[问题]/[选项] 标记），
+        # 拆成「正文 + 选项按钮」两段，正文照旧显示，选项交给界面渲染
+        body, options = split_options(question)
+        head = f"（还剩 {remaining} 轮澄清机会）"
+        self.agent_response.emit(f"{head}\n\n{body}" if body else head)
+        if options:
+            self.options_ready.emit(options)
         self.round_info.emit(f"剩余澄清轮次：{remaining}")
         sm.transition(AgentState.PROBE_KEY_FORK)
 
@@ -319,14 +381,22 @@ class AgentWorker(QThread):
         self.plan_card_ready.emit(card_dict)
 
         sm.transition(AgentState.USER_CONFIRM)
-        self.agent_response.emit(
-            "这个计划看起来如何？\n"
-            "1. 确认，开始检索\n"
-            "2. 需要调整（请说明）\n"
-            "3. 重新生成\n"
-            "4. 跳过检索\n"
-            "5. 以树形图查看文献结构（发散检索 + 思维导图）"
-        )
+        self._emit_plan_actions()
+
+    # 计划确认阶段的操作项。needs_input=True 的项点下去不直接下发，
+    # 而是把焦点交回输入框，让用户先把「要调整什么」说完。
+    PLAN_ACTIONS = [
+        {"key": "1", "label": "确认，开始检索"},
+        {"key": "2", "label": "需要调整（请说明）", "needs_input": True},
+        {"key": "3", "label": "重新生成"},
+        {"key": "4", "label": "跳过检索"},
+        {"key": "5", "label": "以树形图查看文献结构（发散检索 + 思维导图）"},
+    ]
+
+    def _emit_plan_actions(self):
+        """计划确认菜单：正文与选项分开下发，选项由界面渲染成按钮"""
+        self.agent_response.emit("这个计划看起来如何？")
+        self.options_ready.emit([dict(o) for o in self.PLAN_ACTIONS])
 
     def _view_literature_tree(self):
         """以树形图查看文献结构（与命令行版同一逻辑，接在澄清结论之后）"""
@@ -371,7 +441,7 @@ class AgentWorker(QThread):
             seed_limit=12,
             per_topic=3,
             topics_per_aspect=3,
-            max_queries=15,
+            max_queries=20,
             progress=lambda msg: self.status.emit(msg),
         )
         try:
@@ -406,26 +476,18 @@ class AgentWorker(QThread):
             self.agent_response.emit(f"⚠ 树形图已生成但写文件失败：{e}")
             return
 
-        import webbrowser
-        try:
-            webbrowser.open("file://" + os.path.abspath(base + ".html"))
-        except Exception:
-            pass
+        # 导图交给主窗口内嵌展示；面板不可用时主窗口会退回外部浏览器
+        self.map_ready.emit(base + ".html", topic)
 
         # 停留在 USER_CONFIRM，用户看完导图还能继续选「确认，开始检索」
         self.agent_response.emit(
-            "文献树形图已生成，并已在浏览器中打开。\n\n"
+            "文献树形图已生成，已在窗口内打开（点右上角「返回对话」可切回）。\n\n"
             + summarize(litmap)
             + f"\n\n[已保存] 导图：{base}.html\n"
               f"[已保存] 大纲：{base}.md\n"
-              f"[已保存] 数据：{base}.json\n\n"
-              "这个计划看起来如何？\n"
-              "1. 确认，开始检索\n"
-              "2. 需要调整（请说明）\n"
-              "3. 重新生成\n"
-              "4. 跳过检索\n"
-              "5. 再生成一份树形图"
+              f"[已保存] 数据：{base}.json"
         )
+        self._emit_plan_actions()
 
     def _handle_user_confirm(self, text: str):
         sm = self.agent["state_machine"]
@@ -446,8 +508,11 @@ class AgentWorker(QThread):
         elif text in ("5", "树形图", "导图", "map"):
             self._view_literature_tree()
         else:
-            sm.transition(AgentState.CALL_SEARCH)
-            self._handle_search()
+            # 走「其他（自己输入）」时，用户打的字就是调整说明：
+            # 记进历史后重新生成翻译卡，而不是当成误操作直接去检索。
+            sm.add_to_history("user", f"调整: {text}")
+            sm.transition(AgentState.GENERATE_PLAN_CARD)
+            self._handle_generate_plan()
 
     def _handle_search(self):
         sm = self.agent["state_machine"]
@@ -482,11 +547,11 @@ class AgentWorker(QThread):
         self._handle_present_results()
 
     def _handle_present_results(self):
-        self.agent_response.emit(
-            "接下来你想：\n"
-            "1. 细化检索（开始新对话）\n"
-            "2. 结束"
-        )
+        self.agent_response.emit("接下来你想：")
+        self.options_ready.emit([
+            {"key": "1", "label": "细化检索（开始新对话）"},
+            {"key": "2", "label": "结束"},
+        ])
 
     def _handle_present(self, text: str):
         if text in ("1", "细化"):
