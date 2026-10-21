@@ -10,7 +10,10 @@
 
 import os
 import re
+import html
 import json
+import time
+import urllib.error
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -200,20 +203,39 @@ class RealSearchProvider(SearchProvider):
         except json.JSONDecodeError:
             return None
 
-    def _http_get_text(self, url: str) -> Optional[str]:
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return resp.read().decode("utf-8", errors="replace")
-        except Exception as e:
-            print(f"[检索请求失败] {url} -> {e}")
-            return None
+    # 需要退避重试的状态码。Crossref 对高频请求返回 429，
+    # 而文献地图一次要连发十几个检索，不退避的话中后段分支会整片变空，
+    # 表现为「检索没报错，但这几个方向一篇都没有」。
+    _RETRY_STATUS = {429, 502, 503, 504}
+
+    def _http_get_text(self, url: str, retries: int = 3) -> Optional[str]:
+        delay = 2.0
+        for attempt in range(retries + 1):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return resp.read().decode("utf-8", errors="replace")
+            except urllib.error.HTTPError as e:
+                if e.code in self._RETRY_STATUS and attempt < retries:
+                    print(f"[检索限流 {e.code}] {delay:.0f}s 后重试（第 {attempt + 1} 次）")
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                print(f"[检索请求失败] {url} -> {e}")
+                return None
+            except Exception as e:
+                print(f"[检索请求失败] {url} -> {e}")
+                return None
+        return None
 
     @staticmethod
     def _clean_text(text: str) -> str:
         """去除 HTML/JATS 标签并规整空白"""
         if not text:
             return ""
+        # Crossref 的摘要是实体转义的（&lt;strong&gt; 而非 <strong>），
+        # 先还原再剥标签，否则界面上会直接露出 &lt;strong&gt; 这类乱码。
+        text = html.unescape(text)
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text)
         return text.strip()
