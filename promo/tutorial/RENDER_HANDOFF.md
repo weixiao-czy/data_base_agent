@@ -102,3 +102,30 @@ npx remotion render Tutorial out/tutorial-voiced-1080p.mp4 --props=props-voice.j
 在未修改时长的情况下，最终视频应为 1920×1080、30 fps、约 631 秒、H.264/AAC。可用 `ffprobe` 检查媒体信息，再用播放器确认画面声音正常。不要把“编译通过”写成“成片已验证”。
 
 交付 MP4、SRT、章节文件，并保留最终修改后的源码和分镜。若仍在原 Git 项目中工作，遵守 `AGENTS.md`：每轮修改完成后创建新的 commit。
+
+## 交付记录（2026-10-22 已渲染并验收）
+
+- 环境：Windows 11 / Node v24.20.0 / npm 11.19.0。本机该目录的 `node_modules` 只有浏览器缓存，
+  Remotion 依赖由上一级 `promo/node_modules`（同为 4.0.536）解析，CLI 也使用上一级的 `.bin/remotion`；
+  独立环境仍需在本目录执行 `npm ci`。
+- 配音：`Microsoft Huihui Desktop`（zh-CN，SAPI 离线语音）。`narrate.ps1` 新增 `-Rate`（默认 **5**）：
+  Rate=0 时 68/78 句超出 `assemble_voice.py` 的 1.20 倍上限（中位需 1.36 倍、最差 1.93 倍）导致流程失败；
+  Rate=5 时最大 1.115 倍、全部装入，语速约 6.98 字/秒。
+  `public/narration.wav` = 631.000 s / 48 kHz 单声道（78 句，逐句对齐，无截断）；`public/music.wav` = 631.000 s / 44.1 kHz 立体声。
+- 渲染：`remotion render Tutorial out/tutorial-voiced-1080p.mp4 --props=props-voice.json --codec=h264 --crf=18 --pixel-format=yuv420p --audio-bitrate=192k --concurrency=2`
+  （直接调用 Remotion，避免 `npm run render:voiced` 的准备阶段重复生成语音；本机可用内存仅 1.4–2.8 GB，故并发用 2）。
+- 产物：`out/tutorial-voiced-1080p.mp4` 47,362,350 字节。
+- 实测（ffprobe / ffmpeg）：H.264 High、1920×1080、`yuv420p`、30/1 fps、**18,930 帧**、631.019 s；
+  视频 402 kbps、AAC LC 48 kHz 双声道 189 kbps；`-f null -` 全解码无错误，`nb_read_frames=18930`。
+- 响度（成片 AAC）：Integrated **−23.6 LUFS**、LRA 8.3 LU、True peak **−3.3 dBFS**（与合成前的模拟混音一致）。
+  9 个章节窗口（2–625 s）均有声音（峰值 −3.3～−5.5 dBFS），全片无 >1.5 s 的 −50 dB 静音段，开头 8 s 即有讲解。
+- 审片：`npm run preview` 导出 234 张 1920×1080 样帧（34 场景 × 78 步 × 点击前/后/结束），
+  由 8 名审片分 10 组逐帧实看，共 3 轮（首轮找问题 → 修 → 复审 → 定点复核）。证据在 `out/qa/`，
+  联系表 `out/review-contact-sheet.jpg`。
+- 修正内容见 commit `1a7c72a` 与 `3182aa9`：换行算法（ASCII 整词不断、中文避头尾、末行均衡不增加行数）、
+  左栏 440→490、Frame 子元素裁剪、每 focus 单光标、密钥掩码与「核对三项」显示已填内容、
+  终端命令高亮态改深色文字、安装步不再遮挡命令行、光标入场钳制在面板内、配音语速。
+- 已知限制：SAPI 合成音，非真人配音；整体响度偏低（−23.6 LUFS，其中约 24% 时长为讲解间隙），
+  需要时调高播放器音量或改 `src/Tutorial.tsx` 的音量；`download` 目标框末行「code。」偏短、
+  `env_values` 两条动作末行单字，属排版观感；`source_run` 第 2 步（QtWebEngine）画面无对应元素，仅字幕说明；
+  本机未渲染无配音版（可执行 `npm run render` 输出 `out/tutorial-1080p.mp4`）。

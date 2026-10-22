@@ -1,6 +1,6 @@
 # 文献检索 Agent：零基础视频教程源码
 
-这是可独立交给另一位模型或剪辑人员的 Remotion 教程工程。**本次只交付源码与文字脚本，没有生成视频、样帧或音频。** 原商业宣传片位于上一级目录，本工程与它分开。
+这是可独立交给另一位模型或剪辑人员的 Remotion 教程工程。**2026-10-22 已生成带中文配音的 1080p 成片：`out/tutorial-voiced-1080p.mp4`（1920×1080 / 30 fps / 18,930 帧 / 631 秒），验收数据见 [RENDER_HANDOFF.md](RENDER_HANDOFF.md) 末尾的「交付记录」。** 原商业宣传片位于上一级目录，本工程与它分开。
 
 | 项目 | 内容 |
 | --- | --- |
@@ -47,6 +47,8 @@ npm run check
 背景音乐由 `scripts/gen-audio.mjs` 逐样本生成，包含和弦铺底、琶音、低音和轻鼓组，无需外部音乐文件。生成位置是 `public/music.wav`。音色和混音尚未试听，下一位操作者应试听后决定是否调整。
 
 配音有两条路径：Windows 中文 SAPI 离线语音，或者按 `narration-cues.json` 提供逐句 PCM WAV。两条路径都可以用 `scripts/assemble_voice.py` 对齐时长；它会在语速过快时明确停止，不截断讲解。不要把系统语音等同于真人或高质量商业配音。
+
+SAPI 的默认语速偏慢：`scripts/narrate.ps1` 的 `-Rate` 默认 5（实测 `Microsoft Huihui Desktop` 在 Rate=0 时 68/78 句超过 1.20 倍对齐上限）。换语音时先跑一次 `npm run voice`，看是否还有超限句。
 
 画面与配音合成时自动降低背景音乐音量。无配音版仍有完整屏幕字幕，方便低成本先审查。
 
