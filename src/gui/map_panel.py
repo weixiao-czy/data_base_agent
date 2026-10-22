@@ -9,7 +9,7 @@ QtWebEngine 是可选依赖：缺失时降级为提示 + 「在浏览器打开�
 import os
 import webbrowser
 
-from PyQt6.QtCore import Qt, QUrl, pyqtSignal
+from PyQt6.QtCore import Qt, QCoreApplication, QUrl, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -25,6 +25,13 @@ from PyQt6.QtWidgets import (
 # 外部已经显式设置过 flags 时不覆盖用户的选择。
 os.environ.setdefault(
     "QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu"
+)
+
+# PyQt6 6.11 导入 QtWebEngineWidgets 时不再自动设置该属性，
+# 缺失会让 WebEngine 初始化时直接 qFatal 闪退。必须在 QApplication
+# 创建前设置；本模块由 main_window 在 QApplication 之前导入。
+QCoreApplication.setAttribute(
+    Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
 )
 
 try:  # PyQt6-WebEngine 需要单独安装
