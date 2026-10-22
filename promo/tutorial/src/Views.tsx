@@ -77,7 +77,7 @@ function Tree({scene,focus,f}:Props){
    {dimensions.map((d,i)=>{const y=197+i*66, match=i===1,grow=focus==='root'?interpolate(f,[i*8,i*8+25],[0,1],clamp):1;return <g key={d} opacity={(searched&&!match?.25:1)*grow}>
     <path d={`M224 345C260 345 260 ${y+23} 290 ${y+23}`} fill="none" stroke={i%2?color.blue:'#78A486'} strokeWidth={2} pathLength={1} strokeDasharray={1} strokeDashoffset={1-grow}/>
     <Box x={290} y={y} w={235} h={46} label={d} size={22} fill={i%2?'#EDF2FF':'#EAF3E6'} active={focus==='survey'&&i===0} f={f} click/>
-    {!collapsed&&!(focus==='survey'&&i===0&&f<90)&&<><path d={`M525 ${y+23}H570M795 ${y+23}H840`} stroke="#99AC93" strokeWidth={2}/><Box x={570} y={y} w={225} h={46} label={match?'查询扩展':'示例检索方向'} size={22} active={searched&&match} f={f}/><Box x={840} y={y} w={365} h={46} label={match?'示例：查询扩展研究':'示例：相关文献'} size={22} active={focus==='paper'&&i===0||focus==='detail'&&match} f={f} click={focus==='paper'||focus==='detail'&&f<90}/></>}
+    {!collapsed&&!(focus==='survey'&&i===0&&f<90)&&<><path d={`M525 ${y+23}H570M795 ${y+23}H840`} stroke="#99AC93" strokeWidth={2}/><Box x={570} y={y} w={225} h={46} label={match?'查询扩展':'示例检索方向'} size={22} active={searched&&match} f={f}/><Box x={840} y={y} w={365} h={46} label={match?'示例：查询扩展研究':'示例：相关文献'} size={22} active={focus==='paper'&&i===0||focus==='detail'&&match} f={f} click={focus==='paper'||focus==='detail'&&f<106}/></>}
    </g>})}
   </g>
   {detail&&<><Box x={850} y={133} w={355} h={467} fill="#F8FAF3"/><Text x={875} y={178} text="文献详情 / 示例" size={24} fill={color.blue}/><Text x={875} y={231} text="查询扩展研究" size={30} bold width={300}/><Text x={875} y={294} text="研究维度：核心方法\n检索方向：查询扩展" size={23} width={310}/><Text x={875} y={391} text="示例摘要：比较不同查询策略对文献检索的影响，帮助判断这篇文献是否值得深入阅读。" width={300} size={24}/></>}
@@ -139,13 +139,13 @@ function Source({scene,focus,f}:Props){
  if(scene.view==='source')return <Frame title="项目主页 → 下载源码 → 解压">
   <Text x={50} y={117} text="github.com/weixiao-czy/data_base_agent" size={28}/>
   <Box x={60} y={158} w={270} h={63} label="Code" active={focus==='zip'} f={f} click size={30}/><Box x={380} y={158} w={700} h={63} label="Download ZIP → 解压" active={focus==='zip'} f={f} size={30}/>
-  {['data_base_agent-master /','    gui_launcher.py','    requirements.txt','    src /','    .env.example'].map((t,i)=><Text key={t} x={100} y={300+i*54} text={t} size={27} mono/>)}
+  {['data_base_agent-master /','    gui_launcher.py','    requirements.txt','    src /','    .env.example'].map((t,i)=><Text key={t} x={100} y={300+i*54} text={t} size={27} mono fill={focus==='root'&&(t.includes('gui_launcher')||t.includes('requirements'))?color.blue:undefined}/>)}
   <Text x={750} y={390} text="进入内层项目目录，\n确认看到这两个文件。" width={420} size={28} fill={color.blue}/>
  </Frame>;
  return <Frame title="Windows PowerShell · 在项目根目录执行">
   <rect x={1} y={53} width={1228} height={596} fill="#152923"/>
   <Text x={40} y={107} text={scene.id==='python'?'先安装 Python 3.12（python.org）':'当前目录：包含 gui_launcher.py 的文件夹'} size={27} fill={color.green}/>
-  {(p.commands||[]).map((cmd,i)=><g key={cmd}><Text x={48} y={192+i*145} text={`${i+1}. 复制并执行这一条`} size={22} fill="#AEC5AE"/><Box x={40} y={217+i*145} w={1145} h={83} fill="#243E32" active={focus===['venv','pip'][i]||focus==='run'||focus==='terminal'} f={f}/><Text x={62} y={266+i*145} text={cmd} size={26} width={1100} mono fill="white"/></g>)}
+  {focus!=='install'&&(p.commands||[]).map((cmd,i)=>{const on=focus===['venv','pip'][i]||focus==='run'||focus==='terminal';return <g key={cmd}><Text x={48} y={192+i*145} text={`${i+1}. 复制并执行这一条`} size={22} fill="#AEC5AE"/><Box x={40} y={217+i*145} w={1145} h={83} fill="#243E32" active={on} f={f}/><Text x={62} y={266+i*145} text={cmd} size={26} width={1100} mono fill={on&&f>=90?color.ink:'white'}/></g>})}
   <Text x={48} y={551} text={p.note||''} size={25} width={1120} fill="#BDD0B7"/>
   {focus==='install'&&<><Box x={130} y={190} w={930} h={235} fill="#F0F4E8"/><Text x={170} y={254} text="Python 3.12 · Windows 安装器" size={35} bold/><Text x={170} y={326} text="☑ Add python.exe to PATH" size={32}/><Text x={170} y={385} text="安装后重新打开终端。" size={25}/></>}
  </Frame>;

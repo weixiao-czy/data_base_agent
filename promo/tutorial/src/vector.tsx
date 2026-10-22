@@ -37,7 +37,12 @@ export function wrap(text:string, width:number, size:number) {
     // paragraph with balanced capacity so both lines read evenly.
     if (rows.length > 1) {
       const total = rows.reduce((a,row) => a + unitOf(row), 0);
-      if (unitOf(rows[rows.length - 1]) < budget * .45) rows = layout(paragraph, total / rows.length);
+      if (unitOf(rows[rows.length - 1]) < budget * .45) {
+        // Only accept the balanced pass when it keeps the same line count; otherwise the
+        // indivisible Latin runs would add a line and look worse than the greedy result.
+        const balanced = layout(paragraph, total / rows.length);
+        if (balanced.length <= rows.length) rows = balanced;
+      }
     }
     result.push(...rows);
   }
@@ -46,7 +51,10 @@ export function wrap(text:string, width:number, size:number) {
 export const Text:React.FC<{x:number;y:number;text:string;size?:number;width?:number;fill?:string;bold?:boolean;lineHeight?:number;anchor?:'start'|'middle'|'end';mono?:boolean}> = ({x,y,text,size=26,width=1000,fill=color.ink,bold=false,lineHeight=1.45,anchor='start',mono=false}) => <text x={x} y={y} fill={fill} fontSize={size} fontWeight={bold?700:400} textAnchor={anchor} fontFamily={mono?'Consolas, "Noto Sans Mono CJK SC", monospace':undefined}>{wrap(text,width,size).map((line,i)=><tspan key={i} x={x} dy={i?size*lineHeight:0}>{line}</tspan>)}</text>;
 export const Cursor:React.FC<{x:number;y:number;f:number}> = ({x,y,f}) => {
   const travel=interpolate(f,[12,60],[1,0],clamp), clicked=f>=90&&f<106;
-  return <g transform={`translate(${x+travel*70},${y+travel*40})`} opacity={f<12?0:1}>
+  // Keep the whole arrow inside the 1230x650 frame body even during the entry glide,
+  // otherwise the Frame clip cuts it in half at the right/bottom edge.
+  const cx=Math.min(x+travel*70,1203), cy=Math.min(y+travel*40,614);
+  return <g transform={`translate(${cx},${cy})`} opacity={f<12?0:1}>
     {clicked&&<circle r={12+(f-90)*1.5} fill="none" stroke={color.orange} strokeWidth={3} opacity={1-(f-90)/16}/>}
     <path d="M0 0 L0 27 L7 20 L14 34 L20 30 L13 18 L25 18 Z" fill={color.ink} stroke="white" strokeWidth={2}/>
   </g>;
