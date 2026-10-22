@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QListWidget, QListWidgetItem,
     QTextEdit, QFrame, QFileDialog, QStackedWidget,
-    QStackedLayout, QGraphicsDropShadowEffect,
+    QStackedLayout, QGraphicsDropShadowEffect, QMenu,
 )
-from PyQt6.QtCore import Qt, QEvent, QSize, QTimer, QSettings
+from PyQt6.QtCore import Qt, QEvent, QSize, QTimer, QSettings, QPoint
 from PyQt6.QtGui import QColor
 
 from .styles import (
@@ -363,10 +363,13 @@ class MainWindow(QMainWindow):
         hl.addWidget(self.header_status)
         hl.addStretch(1)
 
+        self.recent_map_btn = self._ghost_btn("最近地图", self._show_recent_maps)
+        self.recent_map_btn.setToolTip("重开最近生成或导入的导图")
         self.import_map_btn = self._ghost_btn("导入树形图文件", self._import_map)
         self.import_map_btn.setToolTip("选择已生成的导图 HTML，在窗口内查看")
         self.export_btn = self._ghost_btn("导出结果", self._export_results)
         self.export_card_btn = self._ghost_btn("导出翻译卡", self._export_plan_card)
+        hl.addWidget(self.recent_map_btn)
         hl.addWidget(self.import_map_btn)
         hl.addWidget(self.export_btn)
         hl.addWidget(self.export_card_btn)
@@ -756,6 +759,91 @@ class MainWindow(QMainWindow):
         """
         self.chat_display.add_options(options, show_skip=allow_skip)
 
+    def _show_recent_maps(self):
+        """弹出最近导图菜单：生成过或导入过的都能一键重开"""
+        menu = QMenu(self)
+        menu.setToolTipsVisible(True)
+
+        recents = self._recent_maps()
+        if not recents:
+            empty = menu.addAction("暂无历史地图")
+            empty.setEnabled(False)
+        else:
+            for path in recents:
+                action = menu.addAction(self._recent_label(path))
+                action.setToolTip(path)
+                action.triggered.connect(
+                    lambda checked=False, p=path: self._open_recent_map(p)
+                )
+
+        menu.addSeparator()
+        other = menu.addAction("打开其他文件…")
+        other.triggered.connect(self._import_map)
+
+        btn = self.recent_map_btn
+        menu.exec(btn.mapToGlobal(QPoint(0, btn.height() + 6)))
+
+    def _recent_maps(self) -> list[str]:
+        """合并已记录的历史与 output/maps 里的旧产物，按修改时间倒序"""
+        settings = QSettings("LiteratureSearchAgent", "LiteratureSearchAgent")
+        try:
+            stored = json.loads(settings.value("maps/recent", "[]", type=str) or "[]")
+        except (TypeError, ValueError):
+            stored = []
+        candidates = [p for p in stored if isinstance(p, str) and p]
+
+        maps_dir = self._maps_dir()
+        if os.path.isdir(maps_dir):
+            for name in os.listdir(maps_dir):
+                if name.lower().endswith((".html", ".htm")):
+                    candidates.append(os.path.join(maps_dir, name))
+
+        seen, result = set(), []
+        for path in candidates:
+            if not os.path.isfile(path):
+                continue
+            key = os.path.normcase(os.path.abspath(path))
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(os.path.abspath(path))
+
+        result.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return result[:8]
+
+    def _remember_map(self, path: str):
+        path = os.path.abspath(path)
+        settings = QSettings("LiteratureSearchAgent", "LiteratureSearchAgent")
+        try:
+            stored = json.loads(settings.value("maps/recent", "[]", type=str) or "[]")
+        except (TypeError, ValueError):
+            stored = []
+
+        recents = [p for p in stored if isinstance(p, str) and p]
+        recents = [
+            p for p in recents if os.path.normcase(os.path.abspath(p)) != os.path.normcase(path)
+        ]
+        recents.insert(0, path)
+        settings.setValue(
+            "maps/recent", json.dumps(recents[:10], ensure_ascii=False)
+        )
+
+    def _recent_label(self, path: str) -> str:
+        topic = self._read_map_topic(path) or os.path.splitext(os.path.basename(path))[0]
+        if len(topic) > 22:
+            topic = topic[:22] + "…"
+        try:
+            stamp = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%m-%d %H:%M")
+        except OSError:
+            stamp = ""
+        return f"{topic} · {stamp}" if stamp else topic
+
+    def _open_recent_map(self, path: str):
+        if not os.path.isfile(path):
+            self._show_toast("地图文件已不存在")
+            return
+        self._on_map_ready(path, self._read_map_topic(path))
+
     def _import_map(self):
         """挑一个已生成的导图 HTML，重新在内嵌面板中打开"""
         settings = QSettings("LiteratureSearchAgent", "LiteratureSearchAgent")
@@ -810,6 +898,7 @@ class MainWindow(QMainWindow):
         """
         if not os.path.exists(html_path):
             return
+        self._remember_map(html_path)
         if not HAS_WEBENGINE:
             webbrowser.open("file://" + os.path.abspath(html_path))
             return

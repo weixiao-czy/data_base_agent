@@ -99,6 +99,35 @@ QToolTip {{
     border-radius: {RADIUS['sm']};
 }}
 
+QMenu {{
+    background-color: {COLORS['bg_main']};
+    border: 1px solid {COLORS['border']};
+    border-radius: {RADIUS['md']};
+    padding: 6px;
+}}
+
+QMenu::item {{
+    padding: 8px 14px;
+    border-radius: {RADIUS['sm']};
+    color: {COLORS['text_primary']};
+    font-size: 12px;
+}}
+
+QMenu::item:selected {{
+    background-color: {COLORS['accent_soft']};
+    color: {COLORS['text_primary']};
+}}
+
+QMenu::item:disabled {{
+    color: {COLORS['text_tertiary']};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background-color: {COLORS['border']};
+    margin: 6px 8px;
+}}
+
 QScrollArea {{
     border: none;
     background: transparent;
