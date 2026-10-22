@@ -10,6 +10,7 @@ import os
 import webbrowser
 
 from PyQt6.QtCore import Qt, QCoreApplication, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -35,12 +36,53 @@ QCoreApplication.setAttribute(
 )
 
 try:  # PyQt6-WebEngine 需要单独安装
+    from PyQt6.QtWebEngineCore import QWebEnginePage
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 
     HAS_WEBENGINE = True
 except Exception:  # noqa: BLE001 - 缺依赖、DLL 缺失都会抛不同的错
+    QWebEnginePage = None
     QWebEngineView = None
     HAS_WEBENGINE = False
+
+EXTERNAL_SCHEMES = ("http", "https", "mailto")
+
+
+def _open_in_system_browser(url: QUrl):
+    QDesktopServices.openUrl(url)
+
+
+if HAS_WEBENGINE:
+
+    class _MapPage(QWebEnginePage):
+        """导图预览只读：外链一律交给系统浏览器，不在内嵌页面里跳走。
+
+        导图里的文献链接是 target="_blank"，QtWebEngine 默认不创建新窗口，
+        点击会毫无反应；同页跳转则会把内嵌的导图本身替换掉。两条路径都要拦。
+        """
+
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.newWindowRequested.connect(self._on_new_window_requested)
+
+        def acceptNavigationRequest(self, url, nav_type, is_main_frame):
+            link_clicked = (
+                nav_type
+                == QWebEnginePage.NavigationType.NavigationTypeLinkClicked
+            )
+            if link_clicked and self._open_externally(url):
+                return False
+            return super().acceptNavigationRequest(url, nav_type, is_main_frame)
+
+        def _on_new_window_requested(self, request):
+            self._open_externally(request.requestedUrl())
+
+        @staticmethod
+        def _open_externally(url: QUrl) -> bool:
+            if url.scheme().lower() not in EXTERNAL_SCHEMES:
+                return False
+            _open_in_system_browser(url)
+            return True
 
 
 class MapPanel(QFrame):
@@ -55,6 +97,7 @@ class MapPanel(QFrame):
         self.setMinimumWidth(360)
         self._path = ""
         self._view = None
+        self._page = None
         self._setup_ui()
         self.hide()
 
@@ -112,6 +155,8 @@ class MapPanel(QFrame):
             self._view = QWebEngineView(body)
             self._view.setObjectName("map_view")
             self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+            self._page = _MapPage(self._view)
+            self._view.setPage(self._page)
             self._view.loadFinished.connect(self._on_load_finished)
             bl.addWidget(self._view)
         else:
