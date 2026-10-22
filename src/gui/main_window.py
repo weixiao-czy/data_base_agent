@@ -24,6 +24,7 @@ from .styles import (
 from .chat_widget import ChatDisplay, OptionButtons
 from .agent_worker import AgentWorker
 from .confirm_dialog import ConfirmDialog
+from .icons import app_icon
 from .map_panel import MapPanel, HAS_WEBENGINE
 from .settings_dialog import SettingsDialog, load_config
 
@@ -275,6 +276,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setWindowTitle("文献检索需求翻译 Agent")
+        self.setWindowIcon(app_icon())
         self.setMinimumSize(1024, 680)
         self.resize(1240, 820)
 
@@ -741,9 +743,12 @@ class MainWindow(QMainWindow):
         if conv:
             conv["messages"].append({"role": "agent", "content": text})
 
-    def _on_options_ready(self, options: list):
-        """Agent 给出可点击选项：渲染成按钮组"""
-        self.chat_display.add_options(options)
+    def _on_options_ready(self, options: list, allow_skip: bool = False):
+        """Agent 给出可点击选项：渲染成按钮组
+
+        allow_skip 仅在澄清阶段为 True，界面会多渲染一个浅红色的跳过按钮。
+        """
+        self.chat_display.add_options(options, show_skip=allow_skip)
 
     def _on_map_ready(self, html_path: str, topic: str):
         """文献地图生成完毕：内嵌到右侧面板

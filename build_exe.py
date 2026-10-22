@@ -12,6 +12,11 @@ def build():
     project_dir = os.path.dirname(os.path.abspath(__file__))
     src_dir = os.path.join(project_dir, "src")
     spec_file = os.path.join(project_dir, "databaseagent.spec")
+    icon_path = os.path.join(project_dir, "assets", "icon.ico")
+
+    if not os.path.exists(icon_path):
+        print(f"缺少应用图标：{icon_path}")
+        sys.exit(1)
 
     spec_content = f'''
 # -*- mode: python ; coding: utf-8 -*-
@@ -31,6 +36,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('src/prompts', 'prompts'),
+        ('assets', 'assets'),
     ],
     hiddenimports=[
         'gui',
@@ -39,6 +45,10 @@ a = Analysis(
         'gui.agent_worker',
         'gui.settings_dialog',
         'gui.styles',
+        'gui.icons',
+        'gui.map_panel',
+        'PyQt6.QtWebEngineWidgets',
+        'PyQt6.QtWebEngineCore',
         'agent',
         'agent.state_machine',
         'agent.clarifier',
@@ -78,6 +88,7 @@ exe = EXE(
     a.datas,
     [],
     name='LiteratureSearchAgent',
+    icon=r'{icon_path}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
