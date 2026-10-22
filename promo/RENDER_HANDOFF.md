@@ -71,3 +71,16 @@ ffmpeg -hide_banner -i out/promo-litmap-84s.mp4 -af ebur128=peak=true -f null -
 ## 最终交付
 
 交付 `out/promo-litmap-84s.mp4`，可选封面图和审片拼图。报告实际检查过的内容、任何剩余限制及修改后的 commit。不得声称此源码交付阶段已通过视觉验收。
+
+## 交付记录（2026-10-22 已渲染并验收）
+
+- 环境：Windows 11 / Node v24.20.0 / npm 11.19.0；复用现有 `node_modules`，未升级 Remotion 4.0.536；`node_modules/.remotion` 已有 chrome-headless-shell。
+- 顺序：`npm run check` → `npm run gen-audio`（84.000 s / 48 kHz / 双声道，样本峰值 −1.2 dBFS，RMS −16.8 dBFS）→ `npm run render:draft` → `npm run preview`（44 张审片帧）→ 全分辨率复核帧 → `npm run render -- --concurrency=2`。
+- 并发：渲染时可用物理内存仅约 2.2 GB，按本文件规则把最终渲染并发降为 2；**分辨率与时长未降**。
+- 产物：`out/promo-litmap-84s.mp4`（21,456,588 字节）；修正前草稿 `out/promo-litmap-draft-pre-fix.mp4`；封面 `out/promo-litmap-84s-poster.jpg`；审片拼图 `out/review-contact-sheet.jpg`；审片帧 `out/review-litmap/`（44 张）；修复复核帧 `out/fix-*.png`；旧 60 秒素材已移入 `out/legacy-60s/`。
+- 实测（ffprobe / ffmpeg）：H.264 High、1920×1080、`yuvj420p`、30/1 fps、2520 帧、时长 84.011 s；AAC LC 48 kHz 双声道 317 kbps；`-f null -` 全解码无错误，`nb_read_frames=2520`。
+- 成片响度（AAC）：Integrated −14.8 LUFS，LRA 6.5 LU，True peak −1.1 dBFS。
+- 配乐结构实测（WAV 分段平均电平）：32–42 s −14.9 dB（第一峰）→ 42–48 s −17.6 dB（bridge）→ 48–58 s −14.8 dB（第二峰）→ 58–60 s −18.5 dB → 60–76 s −16.7 dB → 76–80 s −23.3 dB → 80–84 s −23.8 dB，83.0 s 后自然淡出（无第 60 秒断裂或重复）。
+- 审片：44 张审片帧 + 修复后全分辨率帧由 4 名审片与 Lead 实看（分工：镜头06/07、镜头08 折叠缩放、镜头08 搜索详情返回、镜头09/10 + 0–42 秒回归）。修复内容见 commit `ac18d22`，修复后相关帧二次复核 PASS。
+- 已知限制（审片判定不阻塞）：详情面板展开后（63.2–66.5 s）画布左缘把根主题节点裁成深色块、文字不可见，左栏与地图页头保留同名主题；缩放终态（60.3–63.2 s）根节点左缘裁约 30 px、首字略缺。二者是「1.16 倍缩放 + pan −180」下同时保证选中文献与摘要完整可读的取景取舍。片尾最后约 1 秒淡出至 −60 dB 以下属设计淡出。
+- 独立源码包已按新源码重新生成并通过 SHA-256 校验：`out/delivery/promo-litmap-84s-source.zip`（24 个文件）。
