@@ -5,8 +5,11 @@
 
 import os
 import json
+import re
+import sys
 import webbrowser
 from datetime import datetime
+from html import unescape
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -14,7 +17,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QFrame, QFileDialog, QStackedWidget,
     QStackedLayout, QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QEvent, QSize, QTimer
+from PyQt6.QtCore import Qt, QEvent, QSize, QTimer, QSettings
 from PyQt6.QtGui import QColor
 
 from .styles import (
@@ -360,8 +363,11 @@ class MainWindow(QMainWindow):
         hl.addWidget(self.header_status)
         hl.addStretch(1)
 
+        self.import_map_btn = self._ghost_btn("导入树形图文件", self._import_map)
+        self.import_map_btn.setToolTip("选择已生成的导图 HTML，在窗口内查看")
         self.export_btn = self._ghost_btn("导出结果", self._export_results)
         self.export_card_btn = self._ghost_btn("导出翻译卡", self._export_plan_card)
+        hl.addWidget(self.import_map_btn)
         hl.addWidget(self.export_btn)
         hl.addWidget(self.export_card_btn)
         pl.addWidget(header)
@@ -749,6 +755,53 @@ class MainWindow(QMainWindow):
         allow_skip 仅在澄清阶段为 True，界面会多渲染一个浅红色的跳过按钮。
         """
         self.chat_display.add_options(options, show_skip=allow_skip)
+
+    def _import_map(self):
+        """挑一个已生成的导图 HTML，重新在内嵌面板中打开"""
+        settings = QSettings("LiteratureSearchAgent", "LiteratureSearchAgent")
+        start_dir = settings.value("maps/last_import_dir", "", type=str)
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = self._maps_dir()
+            if not os.path.isdir(start_dir):
+                start_dir = ""
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "导入文献树形图",
+            start_dir,
+            "HTML 文件 (*.html *.htm);;所有文件 (*)",
+        )
+        if not path:
+            return
+
+        settings.setValue("maps/last_import_dir", os.path.dirname(path))
+        self._on_map_ready(path, self._read_map_topic(path))
+
+    def _maps_dir(self) -> str:
+        """导图默认产物目录：源码运行在项目根，打包后在 exe 同级"""
+        if getattr(sys, "frozen", False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+        return os.path.join(base_dir, "output", "maps")
+
+    @staticmethod
+    def _read_map_topic(path: str) -> str:
+        """从导图 HTML 的 <title> 还原主题，失败时交给文件名兜底"""
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                head = f.read(8192)
+        except OSError:
+            return ""
+
+        match = re.search(r"<title[^>]*>(.*?)</title>", head, re.IGNORECASE | re.DOTALL)
+        title = unescape(match.group(1)).strip() if match else ""
+        for prefix in ("文献地图 · ", "文献地图·", "文献地图 "):
+            if title.startswith(prefix):
+                return title[len(prefix):].strip()
+        return title
 
     def _on_map_ready(self, html_path: str, topic: str):
         """文献地图生成完毕：内嵌到右侧面板
