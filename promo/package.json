@@ -1,0 +1,33 @@
+{
+  "name": "data-base-agent-promo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "84s literature-map product commercial, synchronized original score and render handoff",
+  "scripts": {
+    "prestart": "npm run gen-audio",
+    "start": "remotion studio",
+    "prerender": "npm run check && npm run gen-audio",
+    "render": "remotion render Promo out/promo-litmap-84s.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --audio-bitrate=320k",
+    "check": "tsc --noEmit && node scripts/check-project.mjs",
+    "prepreview": "npm run gen-audio",
+    "preview": "node scripts/preview.mjs",
+    "prestill": "npm run gen-audio",
+    "still": "remotion still Promo out/litmap-still.png --frame=1650",
+    "gen-audio": "node scripts/gen_audio.mjs",
+    "prerender:draft": "npm run check && npm run gen-audio",
+    "render:draft": "remotion render Promo out/promo-litmap-draft.mp4 --scale=0.5 --codec=h264 --crf=25 --pixel-format=yuv420p"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.536",
+    "@remotion/bundler": "4.0.536",
+    "@remotion/renderer": "4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.4"
+  }
+}

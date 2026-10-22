@@ -1,0 +1,78 @@
+{
+  "topic": "大模型辅助文献检索",
+  "notice": "功能示意 · 示例主题与文献，不表示真实检索结果",
+  "dimensions": [
+    {
+      "id": "survey",
+      "label": "综述与奠基",
+      "topic": "领域综述",
+      "paper": "示例：大模型检索方法综述",
+      "color": "#2f6fed"
+    },
+    {
+      "id": "method",
+      "label": "核心方法",
+      "topic": "查询扩展",
+      "paper": "示例：大模型驱动的查询扩展",
+      "color": "#0e8988"
+    },
+    {
+      "id": "task",
+      "label": "任务与应用",
+      "topic": "学术检索",
+      "paper": "示例：学术检索应用研究",
+      "color": "#b45309"
+    },
+    {
+      "id": "data",
+      "label": "数据集与评测",
+      "topic": "检索评测基准",
+      "paper": "示例：检索质量评测方法",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "challenge",
+      "label": "挑战与开放问题",
+      "topic": "生成内容可靠性",
+      "paper": "示例：生成式检索的局限",
+      "color": "#be3461"
+    },
+    {
+      "id": "frontier",
+      "label": "前沿与最新进展",
+      "topic": "检索增强新进展",
+      "paper": "示例：检索增强研究进展",
+      "color": "#0284c7"
+    }
+  ],
+  "selectedPaper": {
+    "title": "示例：大模型驱动的查询扩展",
+    "abstract": "示例摘要：生成关键词变体，比较不同查询策略的检索效果。这段示例用于演示文献摘要阅读。",
+    "query": "LLM AND query expansion"
+  },
+  "cues": {
+    "entry": {
+      "click": 48,
+      "loading": 60,
+      "map": 110
+    },
+    "growth": {
+      "seed": 0,
+      "aspects": 18,
+      "aspectStep": 12,
+      "topics": 105,
+      "papers": 150,
+      "hold": 200
+    },
+    "explore": {
+      "collapse": 25,
+      "expand": 52,
+      "zoomStart": 70,
+      "zoomEnd": 100,
+      "search": 110,
+      "select": 156,
+      "return": 255,
+      "chat": 270
+    }
+  }
+}

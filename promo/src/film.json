@@ -1,0 +1,67 @@
+{
+  "fps": 30,
+  "bpm": 120,
+  "duration": 84,
+  "scenes": [
+    {
+      "id": "hook",
+      "from": 0,
+      "duration": 180,
+      "label": "从一个想法开始"
+    },
+    {
+      "id": "reveal",
+      "from": 180,
+      "duration": 180,
+      "label": "认识你的研究搭档"
+    },
+    {
+      "id": "conversation",
+      "from": 360,
+      "duration": 300,
+      "label": "先厘清，再检索"
+    },
+    {
+      "id": "plan",
+      "from": 660,
+      "duration": 300,
+      "label": "把问题变成计划"
+    },
+    {
+      "id": "network",
+      "from": 960,
+      "duration": 300,
+      "label": "连接学术世界"
+    },
+    {
+      "id": "treeEntry",
+      "from": 1260,
+      "duration": 180,
+      "label": "点一下，展开文献结构"
+    },
+    {
+      "id": "treeGrowth",
+      "from": 1440,
+      "duration": 300,
+      "label": "六大维度，一张领域地图"
+    },
+    {
+      "id": "treeExplore",
+      "from": 1740,
+      "duration": 300,
+      "label": "沿着分支，找到研究线索"
+    },
+    {
+      "id": "workspace",
+      "from": 2040,
+      "duration": 240,
+      "label": "从地图回到研究"
+    },
+    {
+      "id": "brand",
+      "from": 2280,
+      "duration": 240,
+      "label": "把时间还给研究"
+    }
+  ]
+}
