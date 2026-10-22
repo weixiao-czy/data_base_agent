@@ -17,12 +17,12 @@ function Settings({scene,focus,f}:Props){
   {opened&&<><rect x={181} y={117} width={1048} height={531} fill="#172B27" opacity={.12}/>
     <rect x={290} y={138} width={850} height={465} rx={24} fill="white" stroke={color.line}/>
     <Text x={325} y={182} text="设置" size={31} bold/>
-    {['LLM 配置','SciMaster','常规'].map((label,i)=><Box key={label} x={325+i*255} y={202} w={240} h={46} label={label} active={focus==='llm'&&i===0||sci&&i===1} fill={(sci?i===1:i===0)?'#EDF4E2':'white'} f={f} click size={22}/>)}
+    {['LLM 配置','SciMaster','常规'].map((label,i)=><Box key={label} x={325+i*255} y={202} w={240} h={46} label={label} active={focus==='llm'&&i===0||sci&&i===1} fill={(sci?i===1:i===0)?'#EDF4E2':'white'} f={f} click={focus==='llm'} size={22}/>)}
     <Text x={325} y={299} text="API Key:" size={25}/>
-    <Box x={510} y={267} w={590} h={51} label={sci?'留空（主线不配置）':scene.id==='fill_key'&&f<90?'粘贴真实密钥':'●●●●●●●●●●●●'} active={focus==='key'||focus==='mask'||focus==='sci'} f={f} click size={25}/>
+    <Box x={510} y={267} w={590} h={51} label={sci?'留空（主线不配置）':scene.id==='fill_key'&&focus==='key'&&f<90?'粘贴真实密钥':'●●●●●●●●●●●●'} active={focus==='key'||focus==='mask'||focus==='sci'} f={f} click size={25}/>
     <Text x={325} y={379} text="Base URL:" size={25}/>
-    <Box x={510} y={347} w={590} h={51} label={sci?'https://scimaster.bohrium.com/api/v1':focus==='defaults'?'https://models.sjtu.edu.cn/api/v1':'〈服务商提供的完整 API 地址〉'} active={focus==='url'||focus==='defaults'} f={f} click size={23}/>
-    {!sci&&<><Text x={325} y={459} text="模型:" size={25}/><Box x={510} y={427} w={590} h={51} label="〈该平台支持的模型 ID〉" active={focus==='model'} f={f} click size={24}/></>}
+    <Box x={510} y={347} w={590} h={51} label={sci?'https://scimaster.bohrium.com/api/v1':focus==='defaults'||scene.id==='fill_model'?'https://models.sjtu.edu.cn/api/v1':'〈服务商提供的完整 API 地址〉'} active={focus==='url'||focus==='defaults'} f={f} click size={23}/>
+    {!sci&&<><Text x={325} y={459} text="模型:" size={25}/><Box x={510} y={427} w={590} h={51} label={scene.id==='fill_model'&&(focus==='save'||f>=90)?'deepseek-reasoner':'〈该平台支持的模型 ID〉'} active={focus==='model'} f={f} click size={24}/></>}
     <Text x={325} y={520} text={sci?'没有专用密钥也能使用 Crossref / arXiv':'保存后立即生效；留空项读取环境配置。'} width={630} size={20} fill={color.gray}/>
     <Box x={830} y={541} w={120} h={44} label="取消" size={22}/><Box x={980} y={541} w={120} h={44} label="保存" active={focus==='save'} f={f} click size={22}/>
     {focus==='npx'&&<Box x={335} y={427} w={755} h={56} label="SciMaster：专用 Key + Node.js / npx" size={24} active f={f}/>}
@@ -31,15 +31,18 @@ function Settings({scene,focus,f}:Props){
 }
 function Chat({scene,focus,f}:Props){
  const verify=scene.id==='verify', clarify=scene.id==='clarify';
+ // In the "question" scene the bubble only exists after the send click; before that the
+ // topic is still being typed in the input box.
+ const showQuery = scene.id!=='question' || focus==='input'&&f>=100;
  return <AppBase focus={focus} f={f} status={focus==='ready'?'就绪（仅代表配置存在）':'研究对话'}>
   {verify&&focus==='ready'?<><Box x={270} y={220} w={820} h={130} fill="#FFF0E7"/><Text x={305} y={272} text="就绪 ≠ 连接测试通过" size={38} bold/><Text x={305} y={318} text="下一步：实际发送研究问题，检查回复与错误提示。" size={24}/></>:
-  <><Box x={380} y={155} w={780} h={114} fill="#E7EEDC"/><Text x={405} y={195} text={query} width={730} size={25}/>
+  <>{showQuery&&<><Box x={380} y={155} w={780} h={114} fill="#E7EEDC"/><Text x={405} y={195} text={query} width={730} size={25}/></>}
    {(clarify||verify&&f>=90)&&<><Box x={225} y={305} w={760} h={93} fill="#F3F5EE"/><Text x={250} y={345} text="你更关注检索方法，还是应用体验？" size={26}/>
     <Box x={235} y={427} w={250} h={56} label="检索方法" active={focus==='choice'} click f={f}/><Box x={510} y={427} w={250} h={56} label="应用体验"/>
     <Box x={785} y={427} w={180} h={56} label="其他…" active={focus==='other'} click f={f}/></>}
    {focus==='warning'&&<><Box x={225} y={307} w={940} h={182} fill="#FFF0E7" active f={f}/><Text x={250} y={352} text="请留意：模拟模式 / LLM 调用失败" size={30} bold/><Text x={250} y={405} text="出现这些提示时，先回设置排查配置，\n再用新对话验证。示例气泡不代表真实连通。" width={880} size={25}/></>}
   </>}
-  <Box x={220} y={546} w={830} h={71} label={focus==='other'?'补充自己的研究方向…':focus==='input'?query:'描述你的研究兴趣…'} size={22} active={focus==='input'} f={f} click/>
+  <Box x={220} y={546} w={830} h={71} label={focus==='input'&&f<100?query:focus==='other'?'补充自己的研究方向…':'描述你的研究兴趣…'} size={22} active={focus==='input'&&f<100} f={f} click/>
   <Box x={1070} y={546} w={120} h={71} label="发送 ↑" size={23} active={focus==='input'&&f>=100} f={f} click/>
  </AppBase>;
 }
@@ -74,11 +77,11 @@ function Tree({scene,focus,f}:Props){
    {dimensions.map((d,i)=>{const y=197+i*66, match=i===1,grow=focus==='root'?interpolate(f,[i*8,i*8+25],[0,1],clamp):1;return <g key={d} opacity={(searched&&!match?.25:1)*grow}>
     <path d={`M224 345C260 345 260 ${y+23} 290 ${y+23}`} fill="none" stroke={i%2?color.blue:'#78A486'} strokeWidth={2} pathLength={1} strokeDasharray={1} strokeDashoffset={1-grow}/>
     <Box x={290} y={y} w={235} h={46} label={d} size={22} fill={i%2?'#EDF2FF':'#EAF3E6'} active={focus==='survey'&&i===0} f={f} click/>
-    {!collapsed&&!(focus==='survey'&&i===0&&f<90)&&<><path d={`M525 ${y+23}H570M795 ${y+23}H840`} stroke="#99AC93" strokeWidth={2}/><Box x={570} y={y} w={225} h={46} label={match?'查询扩展':'示例检索方向'} size={22} active={searched&&match} f={f}/><Box x={840} y={y} w={365} h={46} label={match?'示例：查询扩展研究':'示例：相关文献'} size={22} active={focus==='paper'&&i===0||focus==='detail'&&match} f={f} click/></>}
+    {!collapsed&&!(focus==='survey'&&i===0&&f<90)&&<><path d={`M525 ${y+23}H570M795 ${y+23}H840`} stroke="#99AC93" strokeWidth={2}/><Box x={570} y={y} w={225} h={46} label={match?'查询扩展':'示例检索方向'} size={22} active={searched&&match} f={f}/><Box x={840} y={y} w={365} h={46} label={match?'示例：查询扩展研究':'示例：相关文献'} size={22} active={focus==='paper'&&i===0||focus==='detail'&&match} f={f} click={focus==='paper'||focus==='detail'&&f<90}/></>}
    </g>})}
   </g>
   {detail&&<><Box x={850} y={133} w={355} h={467} fill="#F8FAF3"/><Text x={875} y={178} text="文献详情 / 示例" size={24} fill={color.blue}/><Text x={875} y={231} text="查询扩展研究" size={30} bold width={300}/><Text x={875} y={294} text="研究维度：核心方法\n检索方向：查询扩展" size={23} width={310}/><Text x={875} y={391} text="示例摘要：比较不同查询策略对文献检索的影响，帮助判断这篇文献是否值得深入阅读。" width={300} size={24}/></>}
-  {focus==='zoom'&&f<150&&<Text x={580} y={604} text="滚轮缩放 · 在空白处按住拖动" size={23} fill={color.blue}/>}
+  {focus==='zoom'&&f<150&&zoom<.4&&<Text x={580} y={604} text="滚轮缩放 · 在空白处按住拖动" size={23} fill={color.blue}/>}
   {focus==='browser'&&<><Box x={220} y={230} w={820} h={240} fill="#FFF2E8"/><Text x={260} y={290} text="内嵌预览不可用？" size={36} bold/><Text x={260} y={349} text="可用浏览器打开已生成的 HTML。\n这与大模型密钥是否正确是两件事。" size={28} width={740}/></>}
   <Text x={25} y={627} text="教学示例文献 · 层级关系不等于引用关系" size={19} fill={color.gray}/>
  </Frame>;
@@ -98,10 +101,10 @@ function Files({scene,focus,f}:Props){
  return <Frame title={header}>
   <rect x={0} y={53} width={210} height={596} fill="#EDF1E8"/>{['文档','文献检索助手','output','maps'].map((s,i)=><Text key={s} x={25+i*10} y={110+i*72} text={s} size={24} fill={i===1?color.ink:color.gray}/>)}
   <Text x={250} y={108} text={history?'文献检索助手 / output / maps':exporting?'选择你能找得到的保存位置':'把程序放在自己新建的文件夹里'} size={27} width={900}/>
-  {(exporting||history?['研究计划.txt','检索结果.txt','研究主题.html','研究主题.md','研究主题.json']:['LiteratureSearchAgent.exe','output / maps','（可选）.env']).map((name,i)=><Box key={name} x={250} y={145+i*66} w={905} h={54} label={name} size={26} active={focus==='exe'&&i===0||focus==='files'&&i>=2||focus==='import'&&i===2||focus==='card'&&i===0||focus==='result'&&i===1} f={f} click={i===0||focus==='import'}/>)}
-  {history&&focus==='recent'&&<><Box x={300} y={138} w={790} h={260} fill="#F5F8F0"/><Text x={332} y={190} text="聊天页 → 最近地图" size={32} bold/><Box x={330} y={221} w={710} h={60} label="选择以前生成的研究主题" active f={f} click/><Text x={332} y={344} text="或者：打开其他文件…" size={27}/></>}
+  {(exporting||history?['研究计划.txt','检索结果.txt','研究主题.html','研究主题.md','研究主题.json']:['LiteratureSearchAgent.exe','output / maps','（可选）.env']).map((name,i)=><Box key={name} x={250} y={145+i*66} w={905} h={54} label={name} size={26} active={focus==='exe'&&i===0||focus==='files'&&i>=2||focus==='import'&&i===2||focus==='card'&&i===0||focus==='result'&&i===1} f={f} click={focus==='exe'&&i===0}/>)}
+  {history&&focus==='recent'&&<><Box x={300} y={138} w={790} h={260} fill="#F5F8F0"/><Text x={332} y={190} text="聊天页 → 最近地图" size={32} bold/><Box x={330} y={221} w={710} h={60} label="选择以前生成的研究主题" active f={f}/><Text x={332} y={344} text="或者：打开其他文件…" size={27}/></>}
   {focus==='offline'&&<Text x={250} y={568} text="已生成 HTML：离线浏览\n新检索 / 新地图：仍需联网" size={25} fill={color.blue}/>}
-  {exporting&&<><Text x={250} y={552} text={focus==='files'?'地图文件自动保存到 output/maps':'文件名：'+(focus==='card'?'研究计划.txt':'检索结果.txt')} size={25}/><Box x={1015} y={572} w={140} h={48} label="保存" active={focus!=='files'} f={f} click/></>}
+  {exporting&&<><Text x={250} y={552} text={focus==='files'?'地图文件自动保存到 output/maps':'文件名：'+(focus==='card'?'研究计划.txt':'检索结果.txt')} size={25}/><Box x={1015} y={572} w={140} h={48} label="保存" active={focus!=='files'} f={f}/></>}
   {!exporting&&!history&&<Box x={260} y={440} w={880} h={87} label="看到主窗口后，再去设置 API 配置。" size={29} fill="#E7F3D1"/>}
  </Frame>;
 }
@@ -148,7 +151,7 @@ function Source({scene,focus,f}:Props){
  </Frame>;
 }
 const fixes:Record<string,[string,string,string]>={
- '401':['401 / 403','先核对 Key 和平台权限','同时检查 Base URL，保存后重新试一次。'],
+ '401':['401 / 403：未授权或权限不足','先核对 Key 和平台权限','同时检查 Base URL，保存后重新试一次。'],
  model:['模型不存在 / 无权限','从同一平台复制模型 ID','名称与账号权限都要匹配。'],
  '429':['请求受限 / 额度不足','查看平台额度与限流提示','稍后再试，避免连续点击发送。'],
  network:['连接失败 / 超时','核对 Base URL 与网络','校园接口可能需要平台规定的网络条件。'],

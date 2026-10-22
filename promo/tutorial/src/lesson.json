@@ -44,7 +44,7 @@
         {
           "seconds": 8,
           "focus": "exe",
-          "action": "点击 LiteratureSearchAgent.exe",
+          "action": "点击以 .exe 结尾的文件",
           "voice": "点击这个点 exe 结尾的文件。主线使用 Windows 程序，不需要先安装 Python。"
         },
         {
@@ -293,7 +293,7 @@
         {
           "seconds": 9,
           "focus": "network",
-          "action": "超时 / 连接失败：核对 API 地址",
+          "action": "超时 / 连接失败：核对地址",
           "voice": "连接超时先查 Base URL 是否完整、网络能否访问该服务。校园接口还要满足平台的网络要求。"
         },
         {

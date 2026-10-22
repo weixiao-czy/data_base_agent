@@ -19,7 +19,7 @@ const Scene:React.FC<{scene:typeof scenes[number];index:number}>=({scene,index})
   <Text x={80} y={117} text={scene.chapter} size={25} fill={color.blue}/><Text x={80} y={184} text={scene.title} width={1760} size={53} bold/>
   <g opacity={stepEnter} transform={`translate(0,${(1-stepEnter)*14})`}>
    <rect x="80" y="239" width="450" height="62" rx="15" fill={color.ink}/><Text x={105} y={280} text={`现在做第 ${stepIndex+1} 步 / 共 ${scene.steps.length} 步`} size={26} fill={color.green}/>
-   <Text x={85} y={365} text={step.action} width={440} size={36} bold lineHeight={1.55}/>
+   <Text x={85} y={365} text={step.action} width={490} size={36} bold lineHeight={1.55}/>
    <Text x={85} y={580} text="做完后，确认这一点" size={23} fill={color.gray}/>
    <rect x="80" y="602" width="450" height="158" rx="18" fill="#EAF0E1"/><Text x={100} y={642} text={scene.goal} width={410} size={27} lineHeight={1.6}/>
    <Text x={85} y={817} text="跟不上时可以暂停视频。" width={445} size={23} fill={color.gray}/>
