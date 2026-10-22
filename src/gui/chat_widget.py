@@ -449,16 +449,20 @@ class OptionButtons(_CenteredColumn):
 
     取代命令行「敲 1 / 敲 A」的交互：Agent 的可选项直接渲染成按钮，
     末尾固定留一个「其他（自己输入）」，把控制权交回输入框。
+    澄清阶段的选项组还会多一个浅红色的「跳过」按钮，单独放在下方，
+    与普通选项拉开视觉距离，避免误点。
     """
 
     # (key, label)；key 为 "__input__" 表示需要用户自己打字补充
     option_clicked = pyqtSignal(str, str)
     INPUT_KEY = "__input__"
+    SKIP_KEY = "跳过"
+    SKIP_LABEL = "跳过澄清，直接生成计划"
 
-    def __init__(self, options: list, parent=None):
+    def __init__(self, options: list, show_skip: bool = False, parent=None):
         super().__init__(parent)
         self._locked = False
-        # (key, label, needs_input)：供输入框直接敲「1」「A」时反查
+        # (key, label, needs_input, display_key)：供输入框手敲内容反查
         self._items = []
 
         outer = QHBoxLayout()
@@ -477,22 +481,41 @@ class OptionButtons(_CenteredColumn):
             label = str(opt.get("label", "")).strip()
             if not label:
                 continue
-            self._items.append((key, label, bool(opt.get("needs_input"))))
+            # display_key 只影响按钮前缀：导图后的菜单用 1/2/3/4 重新编号，
+            # 但下发给 Agent 的仍是 key，避免状态机为展示序号妥协。
+            display_key = str(opt.get("display_key", key)).strip()
+            self._items.append(
+                (key, label, bool(opt.get("needs_input")), display_key)
+            )
 
             if opt.get("needs_input"):
                 # 需要补充说明的选项：先切到输入框，不直接下发
-                btn = self._make_button(f"{key}.  {label}" if key else label,
-                                        "option_btn")
+                btn = self._make_button(
+                    f"{display_key}.  {label}" if display_key else label,
+                    "option_btn",
+                )
                 btn.clicked.connect(
                     lambda _=False: self._pick(self.INPUT_KEY, "", True)
                 )
             else:
-                btn = self._make_button(f"{key}.  {label}" if key else label,
-                                        "option_btn")
+                btn = self._make_button(
+                    f"{display_key}.  {label}" if display_key else label,
+                    "option_btn",
+                )
                 btn.clicked.connect(
                     lambda _=False, k=key, l=label: self._pick(k, l, False)
                 )
             vbox.addWidget(btn)
+
+        if show_skip:
+            self._items.append((self.SKIP_KEY, self.SKIP_LABEL, False, ""))
+            vbox.addSpacing(4)
+            skip = self._make_button(self.SKIP_LABEL, "option_btn_skip")
+            skip.setToolTip("结束剩余澄清，直接生成需求翻译卡")
+            skip.clicked.connect(
+                lambda _=False: self._pick(self.SKIP_KEY, self.SKIP_LABEL, False)
+            )
+            vbox.addWidget(skip)
 
         # 兜底的「其他」：永远放在最后
         other = self._make_button("其他（自己输入）", "option_btn_other")
@@ -534,16 +557,21 @@ class OptionButtons(_CenteredColumn):
 
         从命令行版过来的用户习惯直接敲「1」「A」，若不识别就会把 "1"
         当成研究主题提交。命中返回 (key, label)，否则返回 None。
+        同时接受展示序号（display_key），导图后重编号的菜单也能手敲。
         """
         if self._locked or not self.isEnabled():
             return None
         t = text.strip()
         if not t:
             return None
-        for key, label, needs_input in self._items:
+        for key, label, needs_input, display_key in self._items:
             if not key:
                 continue
-            if t.lower() == key.lower() or t == label:
+            if (
+                t.lower() == key.lower()
+                or (display_key and t.lower() == display_key.lower())
+                or t == label
+            ):
                 return (self.INPUT_KEY, "") if needs_input else (key, label)
         return None
 
@@ -601,12 +629,16 @@ class ChatDisplay(QWidget):
         if at_bottom:
             self._scroll_to_bottom()
 
-    def add_options(self, options: list):
-        """渲染一组可点击选项（上一组自动失效）"""
-        if not options:
+    def add_options(self, options: list, show_skip: bool = False):
+        """渲染一组可点击选项（上一组自动失效）
+
+        show_skip=True 时额外渲染浅红色的「跳过澄清」按钮，
+        澄清阶段即使模型没给出任何选项，也要让用户能退出追问。
+        """
+        if not options and not show_skip:
             return
         self.disable_options()
-        block = OptionButtons(options)
+        block = OptionButtons(options, show_skip=show_skip)
         block.option_clicked.connect(self.option_clicked)
         self._options = block
         self._insert_widget(block)

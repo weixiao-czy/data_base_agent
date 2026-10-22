@@ -93,9 +93,11 @@ class AgentWorker(QThread):
     round_info = pyqtSignal(str)
     finished = pyqtSignal()
     error = pyqtSignal(str)
-    # 可点击选项：[{"key": "1", "label": "确认，开始检索", "needs_input": False}, ...]
-    # key 与命令行里手敲的内容一致，needs_input=True 表示该项需要用户补充说明
-    options_ready = pyqtSignal(list)
+    # 可点击选项：([{"key": "1", "label": "确认，开始检索", "needs_input": False}, ...],
+    #           allow_skip)
+    # key 与命令行里手敲的内容一致，needs_input=True 表示该项需要用户补充说明；
+    # allow_skip=True 表示处于澄清阶段，界面额外渲染一个浅红色的「跳过」按钮
+    options_ready = pyqtSignal(list, bool)
     # 文献地图生成完毕：(html 路径, 主题)。由主窗口决定内嵌展示还是外部打开
     map_ready = pyqtSignal(str, str)
 
@@ -296,7 +298,8 @@ class AgentWorker(QThread):
             body = f"{body}\n\n你更接近哪个方向？"
         self.agent_response.emit(body)
         self.options_ready.emit(
-            [{"key": str(i), "label": opt} for i, opt in enumerate(options, 1)]
+            [{"key": str(i), "label": opt} for i, opt in enumerate(options, 1)],
+            True,
         )
         sm.transition(AgentState.CONFIRM_INTERPRETATION)
 
@@ -306,7 +309,10 @@ class AgentWorker(QThread):
         options = self.agent["current_options"]
 
         self.status.emit("正在分析…")
-        if text.lower() in ("跳过", "skip"):
+        skipped = text.lower() in ("跳过", "skip")
+        if skipped:
+            # 首轮就点「跳过」也要真正结束澄清，而不是默认选第一项后
+            # 继续十轮追问——按钮文案承诺的是「直接生成计划」。
             interpretation = options[0] if options else sm.user_input
         else:
             interpretation = clarifier.confirm_interpretation(text, options)
@@ -315,7 +321,10 @@ class AgentWorker(QThread):
         sm.add_to_history("user", text)
         sm.add_to_history("agent", f"确认方向: {interpretation}")
 
-        if sm.can_clarify():
+        if skipped:
+            sm.transition(AgentState.GENERATE_PLAN_CARD)
+            self._handle_generate_plan()
+        elif sm.can_clarify():
             sm.transition(AgentState.PROBE_KEY_FORK)
             self._do_probe()
         else:
@@ -344,8 +353,9 @@ class AgentWorker(QThread):
         body, options = split_options(question)
         head = f"（还剩 {remaining} 轮澄清机会）"
         self.agent_response.emit(f"{head}\n\n{body}" if body else head)
-        if options:
-            self.options_ready.emit(options)
+        # 即使模型没给出可解析的选项，也要下发一次空选项组：
+        # 界面据此渲染「跳过」与「其他」入口，不让用户被追问困住。
+        self.options_ready.emit(options, True)
         self.round_info.emit(f"剩余澄清轮次：{remaining}")
         sm.transition(AgentState.PROBE_KEY_FORK)
 
@@ -396,7 +406,23 @@ class AgentWorker(QThread):
     def _emit_plan_actions(self):
         """计划确认菜单：正文与选项分开下发，选项由界面渲染成按钮"""
         self.agent_response.emit("这个计划看起来如何？")
-        self.options_ready.emit([dict(o) for o in self.PLAN_ACTIONS])
+        self.options_ready.emit([dict(o) for o in self.PLAN_ACTIONS], False)
+
+    # 导图生成后的菜单：与生成前刻意不同，避免用户以为「什么都没发生」。
+    # display_key 让按钮从 1 重新编号，但下发的 key 仍复用既有语义
+    # （5 = 树形图，2 = 调整，4 = 跳过检索）。
+    MAP_ACTIONS = [
+        {"key": "1", "label": "确认，开始检索"},
+        {"key": "5", "label": "重新生成树形图", "display_key": "2"},
+        {"key": "2", "label": "返回调整计划（请说明）", "needs_input": True,
+         "display_key": "3"},
+        {"key": "4", "label": "跳过检索", "display_key": "4"},
+    ]
+
+    def _emit_map_actions(self):
+        """导图专属后续菜单：不再重复计划确认阶段的五选项"""
+        self.agent_response.emit("导图看完了，接下来想怎么继续？")
+        self.options_ready.emit([dict(o) for o in self.MAP_ACTIONS], False)
 
     def _view_literature_tree(self):
         """以树形图查看文献结构（与命令行版同一逻辑，接在澄清结论之后）"""
@@ -487,7 +513,7 @@ class AgentWorker(QThread):
               f"[已保存] 大纲：{base}.md\n"
               f"[已保存] 数据：{base}.json"
         )
-        self._emit_plan_actions()
+        self._emit_map_actions()
 
     def _handle_user_confirm(self, text: str):
         sm = self.agent["state_machine"]
@@ -551,7 +577,7 @@ class AgentWorker(QThread):
         self.options_ready.emit([
             {"key": "1", "label": "细化检索（开始新对话）"},
             {"key": "2", "label": "结束"},
-        ])
+        ], False)
 
     def _handle_present(self, text: str):
         if text in ("1", "细化"):

@@ -48,6 +48,15 @@ COLORS = {
     "error": "#C4483E",
     "error_hover": "#B03A31",
     "error_pressed": "#99322A",
+    "error_soft": "#FBEAE7",
+    "error_soft_hover": "#F7DCD7",
+    "error_soft_pressed": "#F2CFC9",
+    "error_soft_disabled": "#FCF3F1",
+    "error_border": "#F0C7C0",
+    "error_border_hover": "#E5A89F",
+    "error_border_pressed": "#DB958B",
+    "error_border_disabled": "#F3DFDB",
+    "error_text_disabled": "#C9A6A1",
 
     # 兼容旧键
     "primary": "#D97757",
@@ -561,6 +570,36 @@ MESSAGE_QSS = f"""
     color: {COLORS['text_tertiary']};
     border-color: {COLORS['border_light']};
     background-color: transparent;
+}}
+
+/* 澄清阶段的「跳过」：浅红底 + 红色描边，与普通选项明显区分 */
+#option_btn_skip {{
+    background-color: {COLORS['error_soft']};
+    border: 1px solid {COLORS['error_border']};
+    border-radius: 10px;
+    color: {COLORS['error']};
+    font-size: 12.5px;
+    padding: 8px 14px;
+    text-align: left;
+}}
+
+#option_btn_skip:hover {{
+    background-color: {COLORS['error_soft_hover']};
+    border-color: {COLORS['error_border_hover']};
+    color: {COLORS['error_hover']};
+}}
+
+#option_btn_skip:pressed {{
+    background-color: {COLORS['error_soft_pressed']};
+    border-color: {COLORS['error_border_pressed']};
+    color: {COLORS['error_pressed']};
+    padding: 9px 14px 7px 14px;
+}}
+
+#option_btn_skip:disabled {{
+    background-color: {COLORS['error_soft_disabled']};
+    border-color: {COLORS['error_border_disabled']};
+    color: {COLORS['error_text_disabled']};
 }}
 
 #plan_card_widget {{
