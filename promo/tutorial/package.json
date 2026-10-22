@@ -1,0 +1,37 @@
+{
+  "name": "databaseagent-beginner-tutorial",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vector beginner tutorial: API setup, literature search and embedded maps",
+  "scripts": {
+    "check": "tsc --noEmit && node scripts/check.mjs",
+    "docs": "node scripts/docs.mjs",
+    "gen-audio": "node scripts/gen-audio.mjs",
+    "prepare-media": "npm run check && npm run gen-audio",
+    "prestart": "npm run prepare-media",
+    "start": "remotion studio",
+    "prerender": "npm run prepare-media",
+    "render": "remotion render Tutorial out/tutorial-1080p.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --audio-bitrate=192k",
+    "prerender:draft": "npm run prepare-media",
+    "render:draft": "remotion render Tutorial out/tutorial-draft.mp4 --scale=0.5 --codec=h264 --crf=25",
+    "voices": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/narrate.ps1 -ListVoices",
+    "voice": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/narrate.ps1 && python scripts/assemble_voice.py",
+    "prerender:voiced": "npm run prepare-media && npm run voice",
+    "render:voiced": "remotion render Tutorial out/tutorial-voiced-1080p.mp4 --props=props-voice.json --codec=h264 --crf=18 --pixel-format=yuv420p --audio-bitrate=192k",
+    "prepreview": "npm run prepare-media",
+    "preview": "node scripts/preview.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.536",
+    "@remotion/bundler": "4.0.536",
+    "@remotion/renderer": "4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.4"
+  }
+}

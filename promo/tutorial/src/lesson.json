@@ -1,0 +1,841 @@
+{
+  "title": "文献检索 Agent 零基础上手教程",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "sourceCommit": "644e397db2e844b98370f2db8221dfc4d134f908",
+  "checkedDate": "2026-10-22",
+  "scenes": [
+    {
+      "id": "welcome",
+      "chapter": "01 准备",
+      "title": "从零开始，完成第一次文献检索",
+      "view": "roadmap",
+      "goal": "你只需要跟着高亮区域操作。",
+      "steps": [
+        {
+          "seconds": 7,
+          "focus": "prepare",
+          "action": "下载 → 配置 → 提问",
+          "voice": "这是一份零基础操作教程。先打开程序，再填写接口配置，最后检索和保存文献。"
+        },
+        {
+          "seconds": 7,
+          "focus": "finish",
+          "action": "随时暂停，照着做",
+          "voice": "画面是矢量示意，按钮名称按当前程序制作。遇到要复制的文字，可以暂停视频。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "download",
+      "chapter": "01 准备",
+      "title": "先下载 Windows 程序",
+      "view": "release",
+      "goal": "下载的是 EXE，不是 Source code。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "releases",
+          "action": "打开项目的 Releases 页面",
+          "voice": "打开屏幕上的项目发布页，进入最新发布记录，找到 Assets，也就是下载文件列表。"
+        },
+        {
+          "seconds": 8,
+          "focus": "exe",
+          "action": "点击 LiteratureSearchAgent.exe",
+          "voice": "点击这个点 exe 结尾的文件。主线使用 Windows 程序，不需要先安装 Python。"
+        },
+        {
+          "seconds": 6,
+          "focus": "version",
+          "action": "版本不同时，界面可能不同",
+          "voice": "发布包可能晚于源码更新。如果缺少后面的新按钮，请检查版本，或看源码运行补充章节。"
+        }
+      ],
+      "payload": {
+        "url": "https://github.com/weixiao-czy/data_base_agent/releases",
+        "file": "LiteratureSearchAgent.exe"
+      }
+    },
+    {
+      "id": "launch",
+      "chapter": "01 准备",
+      "title": "放进自己的文件夹，再打开",
+      "view": "files",
+      "goal": "看到左侧历史栏和聊天输入框。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "folder",
+          "action": "新建文件夹：文献检索助手",
+          "voice": "在文档目录里新建一个文件夹，把下载的程序移进去，方便以后找到导出的地图。"
+        },
+        {
+          "seconds": 8,
+          "focus": "exe",
+          "action": "双击程序文件",
+          "voice": "双击程序。只运行确认来自项目发布页的文件；如果系统提示无法运行，先核对来源和系统版本。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "three_info",
+      "chapter": "02 配置",
+      "title": "先认识三个要填的东西",
+      "view": "credentials",
+      "goal": "三项来自同一个 API 服务商。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "key",
+          "action": "API Key = 你的调用凭证",
+          "voice": "API Key 可以理解为调用模型的钥匙。它不是聊天网站的登录密码，也不要发给别人。"
+        },
+        {
+          "seconds": 8,
+          "focus": "url",
+          "action": "Base URL = API 服务地址",
+          "voice": "Base URL 是模型接口的地址，不是聊天网页地址。使用服务商文档给你的接口地址。"
+        },
+        {
+          "seconds": 8,
+          "focus": "model",
+          "action": "模型 = 平台提供的模型 ID",
+          "voice": "模型栏填写平台给出的模型名称。这三项必须配套，不能从三家平台各拿一个。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "get_key",
+      "chapter": "02 配置",
+      "title": "去你有权限的平台拿到三项信息",
+      "view": "provider",
+      "goal": "拿到密钥、接口地址和可用模型名。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "console",
+          "action": "登录服务商的 API 控制台",
+          "voice": "选择你能使用的 OpenAI 兼容接口服务，登录它的 API 控制台。各平台的页面名称可能不同。"
+        },
+        {
+          "seconds": 9,
+          "focus": "create",
+          "action": "找到密钥管理，创建 API Key",
+          "voice": "在 API 密钥或密钥管理入口创建密钥，并妥善保存。有的平台只在创建时展示一次完整值。"
+        },
+        {
+          "seconds": 9,
+          "focus": "docs",
+          "action": "从文档复制地址和模型 ID",
+          "voice": "再从平台的接口文档、模型列表复制地址与模型名，并确认账号有调用额度或相应权限。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "open_settings",
+      "chapter": "02 配置",
+      "title": "回到程序，打开左下角设置",
+      "view": "settings",
+      "goal": "进入「LLM 配置」标签页。",
+      "steps": [
+        {
+          "seconds": 7,
+          "focus": "settings",
+          "action": "点击左下角「设置」",
+          "voice": "回到程序，点击左下角设置。这是主线最简单的配置方式，不需要先编辑环境文件。"
+        },
+        {
+          "seconds": 7,
+          "focus": "llm",
+          "action": "选择「LLM 配置」",
+          "voice": "打开 LLM 配置。这里配置负责理解问题的大模型；另一个 SciMaster 标签是可选的检索服务。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "fill_key",
+      "chapter": "02 配置",
+      "title": "第一项：粘贴你的 API Key",
+      "view": "settings",
+      "goal": "密钥框显示圆点，属于正常隐藏。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "key",
+          "action": "把真实密钥粘贴到 API Key",
+          "voice": "在 API Key 框粘贴刚才创建的真实密钥。不要填写教程占位文字，也不要使用登录密码。"
+        },
+        {
+          "seconds": 7,
+          "focus": "mask",
+          "action": "只复制密钥本身",
+          "voice": "只复制密钥内容，不加引号，不加 Bearer。输入后显示圆点，是程序在隐藏密钥。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "fill_url",
+      "chapter": "02 配置",
+      "title": "第二项：改成你的 Base URL",
+      "view": "settings",
+      "goal": "默认地址不一定适合你的账号。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "url",
+          "action": "完整粘贴服务商的 API 地址",
+          "voice": "把 Base URL 替换成你所用服务商给出的完整接口地址。不要直接粘贴聊天网页链接。"
+        },
+        {
+          "seconds": 9,
+          "focus": "defaults",
+          "action": "示例默认值不能通用于所有人",
+          "voice": "程序默认显示交大的接口地址。只有使用该平台且有权限的人才保留；其他平台请替换。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "fill_model",
+      "chapter": "02 配置",
+      "title": "第三项：填写可用的模型 ID",
+      "view": "settings",
+      "goal": "逐字复制平台模型列表里的名称。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "model",
+          "action": "粘贴模型 ID，不填自己起的名字",
+          "voice": "模型栏填写服务商提供的准确模型 ID。不要把宣传名称、随便起的名字或别家模型名填进去。"
+        },
+        {
+          "seconds": 8,
+          "focus": "save",
+          "action": "核对三项，再点「保存」",
+          "voice": "核对密钥、地址和模型都来自同一平台，然后点击保存。设置页保存后立即生效。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "verify",
+      "chapter": "02 配置",
+      "title": "配置有没有成功，要实际试一次",
+      "view": "chat",
+      "goal": "不把「就绪」误当成连接测试通过。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "ready",
+          "action": "「就绪」不等于连接成功",
+          "voice": "顶部显示就绪，只说明程序读到了配置，并没有验证服务器。程序目前没有单独的测试连接按钮。"
+        },
+        {
+          "seconds": 8,
+          "focus": "input",
+          "action": "发送一个具体研究兴趣",
+          "voice": "新建对话，输入示例研究兴趣并发送。收到围绕主题的回复后，继续观察是否有调用失败提示。"
+        },
+        {
+          "seconds": 8,
+          "focus": "warning",
+          "action": "看有没有「模拟模式」或失败提示",
+          "voice": "如果出现模拟模式或 LLM 调用失败，不能算大模型连接成功。按下一页的方法排查后再试。"
+        }
+      ],
+      "payload": {
+        "query": "我想研究大模型如何帮助文献检索，先做一篇方法综述。"
+      }
+    },
+    {
+      "id": "auth_errors",
+      "chapter": "02 配置",
+      "title": "报错时，先分清是哪一类",
+      "view": "errors",
+      "goal": "按提示检查，不必盲目重装。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "401",
+          "action": "401 / 403：先查密钥与权限",
+          "voice": "如果报未授权或权限不足，先核对密钥、账号权限和接口地址。更换密钥后记得保存。"
+        },
+        {
+          "seconds": 8,
+          "focus": "model",
+          "action": "模型不存在：核对模型 ID",
+          "voice": "如果提示模型不存在或无访问权限，就回到平台模型列表，确认准确名称和可用权限。"
+        },
+        {
+          "seconds": 8,
+          "focus": "429",
+          "action": "429：检查额度，稍后重试",
+          "voice": "如果提示请求过多或额度不足，检查平台额度和调用限制，稍后再试，不要连续猛点发送。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "network_errors",
+      "chapter": "02 配置",
+      "title": "连不上时，检查地址和网络",
+      "view": "errors",
+      "goal": "能打开网页，不代表 API 地址可连接。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "network",
+          "action": "超时 / 连接失败：核对 API 地址",
+          "voice": "连接超时先查 Base URL 是否完整、网络能否访问该服务。校园接口还要满足平台的网络要求。"
+        },
+        {
+          "seconds": 9,
+          "focus": "proxy",
+          "action": "本程序的模型请求使用直连",
+          "voice": "当前模型客户端不读取系统环境代理。有些网络能浏览网页，却无法让程序直连接口，需要检查网络条件。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "optional_sci",
+      "chapter": "02 配置",
+      "title": "SciMaster 可以先不配置",
+      "view": "settings",
+      "goal": "先把 LLM 配好，就能走公开文献接口。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "sci",
+          "action": "没有 SciMaster Key，就先留空",
+          "voice": "SciMaster 是另一种文献检索服务，不是模型密钥的重复填写处。没有它的密钥，可以先留空。"
+        },
+        {
+          "seconds": 8,
+          "focus": "fallback",
+          "action": "公开检索仍需要联网",
+          "voice": "程序可以使用 Crossref 和 arXiv。它们不要求这个密钥，但检索依然需要联网。"
+        },
+        {
+          "seconds": 8,
+          "focus": "npx",
+          "action": "想使用 SciMaster，再单独准备",
+          "voice": "若要启用 SciMaster，还需它自己的密钥与 Node.js 的 npx 环境；本教程主线先使用公开检索。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "question",
+      "chapter": "03 第一次使用",
+      "title": "新建对话，说清想研究什么",
+      "view": "chat",
+      "goal": "主题 + 想做什么，比只有一个词更好。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "new",
+          "action": "点击「新对话」",
+          "voice": "配置确认后，点击左侧新对话。我们从头做一次完整流程，后面一直沿用同一个研究主题。"
+        },
+        {
+          "seconds": 9,
+          "focus": "input",
+          "action": "输入主题和目标，然后发送",
+          "voice": "输入：我想研究大模型如何帮助文献检索，先做一篇方法综述。写清主题和目标，再按发送。"
+        }
+      ],
+      "payload": {
+        "query": "我想研究大模型如何帮助文献检索，先做一篇方法综述。"
+      }
+    },
+    {
+      "id": "clarify",
+      "chapter": "03 第一次使用",
+      "title": "按按钮回答，不用猜该输入什么",
+      "view": "chat",
+      "goal": "不符合的选项可以自己补充。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "choice",
+          "action": "点选最接近的研究方向",
+          "voice": "程序会先复述理解，再给你方向选项。点最接近你的那个。具体文案会随模型回复变化。"
+        },
+        {
+          "seconds": 8,
+          "focus": "other",
+          "action": "不合适就选「其他」并补充",
+          "voice": "如果都不合适，使用其他入口或自由输入补充。你也可以在澄清阶段跳过，先生成计划。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "plan",
+      "chapter": "03 第一次使用",
+      "title": "先检查需求翻译卡",
+      "view": "plan",
+      "goal": "检索前纠正方向，比搜完再返工更省事。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "question",
+          "action": "看研究问题，是否理解对了",
+          "voice": "出现需求翻译卡后，先读研究问题，再看关键词和查询建议，确认方向没有跑偏。"
+        },
+        {
+          "seconds": 8,
+          "focus": "uncertainty",
+          "action": "检查不确定性和待确认事项",
+          "voice": "再检查不确定性。如果范围不对，点需要调整并说明；也可以重新生成。先不要急着检索。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "tree_entry",
+      "chapter": "04 文献地图",
+      "title": "先看地图，再确认普通检索",
+      "view": "plan",
+      "goal": "入口在翻译卡下方的确认菜单。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "tree",
+          "action": "点击「以树形图查看文献结构」",
+          "voice": "现在我们先看文献地图。在翻译卡的确认菜单里，点击以树形图查看文献结构。"
+        },
+        {
+          "seconds": 9,
+          "focus": "loading",
+          "action": "等待种子检索和多维发散",
+          "voice": "程序会检索种子文献，再按方向发散。这个过程需要时间，等待状态更新，不要反复点击。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "tree_read",
+      "chapter": "04 文献地图",
+      "title": "树状图应该从哪里开始看",
+      "view": "tree",
+      "goal": "先综述，再方法，再找评测与选题线索。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "root",
+          "action": "从研究主题看向六个维度",
+          "voice": "地图的研究主题连接六个研究维度，还有单独的种子文献分支。线条表示主题层级。"
+        },
+        {
+          "seconds": 8,
+          "focus": "survey",
+          "action": "先展开「综述与奠基」",
+          "voice": "第一次了解一个方向，先读综述与奠基，再沿核心方法、数据集与评测或挑战分支深入。"
+        },
+        {
+          "seconds": 8,
+          "focus": "paper",
+          "action": "按「维度 → 方向 → 文献」阅读",
+          "voice": "顺着研究维度、检索方向、文献往下看。这不是论文引用网络，也不保证已经覆盖全部文献。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "tree_controls",
+      "chapter": "04 文献地图",
+      "title": "用四个操作找到关心的文献",
+      "view": "tree",
+      "goal": "缩放、移动、搜索、读摘要。",
+      "steps": [
+        {
+          "seconds": 7,
+          "focus": "collapse",
+          "action": "点击节点展开或折叠",
+          "voice": "点击节点可以展开或折叠。内容太多时，先收起到维度；想恢复就点全部展开。"
+        },
+        {
+          "seconds": 7,
+          "focus": "zoom",
+          "action": "滚轮缩放，按住空白拖动",
+          "voice": "用鼠标滚轮缩放，在空白处按住拖动。找不到图时，点适应窗口。"
+        },
+        {
+          "seconds": 8,
+          "focus": "search",
+          "action": "在搜索框输入「查询扩展」",
+          "voice": "在地图搜索框输入查询扩展，相关节点或文献标题会高亮，帮助你定位方向。"
+        },
+        {
+          "seconds": 8,
+          "focus": "detail",
+          "action": "点击文献，阅读右侧摘要",
+          "voice": "点击一篇文献，在右侧看摘要和详情。画面文献是教学示例，实际结果以接口返回为准。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "return",
+      "chapter": "04 文献地图",
+      "title": "看完地图，回到原来的对话",
+      "view": "tree",
+      "goal": "返回不会删除已经生成的地图文件。",
+      "steps": [
+        {
+          "seconds": 7,
+          "focus": "return",
+          "action": "点击右上角「返回对话」",
+          "voice": "看完后点右上角返回对话。你会回到计划确认阶段，可以继续调整或开始普通文献检索。"
+        },
+        {
+          "seconds": 8,
+          "focus": "browser",
+          "action": "内嵌页不可用时，也能用浏览器",
+          "voice": "如果内嵌页不可用，程序可改用浏览器打开已生成的地图。这不等于检索失败。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "search",
+      "chapter": "05 检索与保存",
+      "title": "确认计划，开始普通检索",
+      "view": "plan",
+      "goal": "普通检索与查看地图是两个操作。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "confirm",
+          "action": "点击「确认，开始检索」",
+          "voice": "回到翻译卡确认菜单，点击确认，开始检索。这个操作会执行计划里的检索查询。"
+        },
+        {
+          "seconds": 8,
+          "focus": "waiting",
+          "action": "等待结果出现",
+          "voice": "等待检索结果。结果多少取决于主题、接口和网络；没有结果时，下一步可以细化检索。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "results",
+      "chapter": "05 检索与保存",
+      "title": "先看摘要，再决定读哪篇",
+      "view": "results",
+      "goal": "标题相似，不等于研究内容相同。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "abstract",
+          "action": "检查标题、年份和摘要",
+          "voice": "结果出现后，先看标题、年份和摘要，判断它是否真的回答你的研究问题，不要只看关键词相似。"
+        },
+        {
+          "seconds": 8,
+          "focus": "link",
+          "action": "点论文标题或链接看原文",
+          "voice": "点击可用的论文标题或来源链接，去原始页面核对。摘要或全文能否访问，取决于数据源。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "exports",
+      "chapter": "05 检索与保存",
+      "title": "把计划和结果分别保存",
+      "view": "export",
+      "goal": "先有内容，才有东西可以导出。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "card",
+          "action": "点击「导出翻译卡」",
+          "voice": "要保存检索计划，点击顶部导出翻译卡。选择自己找得到的位置，给文件起名后保存。"
+        },
+        {
+          "seconds": 8,
+          "focus": "result",
+          "action": "点击「导出结果」",
+          "voice": "要保存论文清单，完成检索后再点导出结果。主线建议保存成点 txt 文件，方便直接打开。"
+        },
+        {
+          "seconds": 8,
+          "focus": "files",
+          "action": "地图会另外自动保存",
+          "voice": "地图会自动生成 HTML、Markdown 和 JSON 三种文件，放在程序或项目目录下的 output/maps 文件夹。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "reopen",
+      "chapter": "05 检索与保存",
+      "title": "下次继续，不需要重新画图",
+      "view": "history",
+      "goal": "重新打开 HTML，不是导入 Markdown 或 JSON。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "recent",
+          "action": "点击「最近地图」选择历史项",
+          "voice": "回到聊天页，点击最近地图，选一项重新打开。这里也能选择打开其他文件。"
+        },
+        {
+          "seconds": 8,
+          "focus": "import",
+          "action": "点击「导入树形图文件」",
+          "voice": "也可以点导入树形图文件，进入 output/maps，选择以前保存的 HTML 文件，然后打开。"
+        },
+        {
+          "seconds": 8,
+          "focus": "offline",
+          "action": "已生成的 HTML 可以离线查看",
+          "voice": "已经生成的 HTML 可以离线浏览。生成新地图仍需要联网。文件被移动或删除时，要重新选择正确路径。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "empty",
+      "chapter": "05 检索与保存",
+      "title": "结果不合适，怎样重新来",
+      "view": "errors",
+      "goal": "细化问题，不是无限重复同一次检索。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "empty",
+          "action": "没有结果：换更明确的关键词",
+          "voice": "如果没结果，先检查网络和提示，再换更明确的研究主题、关键词，必要时尝试对应的英文术语。"
+        },
+        {
+          "seconds": 8,
+          "focus": "refine",
+          "action": "选择「细化检索」或「新对话」",
+          "voice": "结果页选择细化检索，或点击新对话，再走一遍澄清与计划。结果页不再显示原来的地图入口菜单。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "summary",
+      "chapter": "06 你已经会了",
+      "title": "主线完成：自己做一遍",
+      "view": "roadmap",
+      "goal": "已有 EXE 且配置成功，可在这里结束。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "done",
+          "action": "配置 → 澄清 → 地图 → 检索 → 保存",
+          "voice": "现在你已经走完配置、澄清、地图、检索和保存。用自己的研究主题再做一次，就能熟悉流程。"
+        },
+        {
+          "seconds": 8,
+          "focus": "appendix",
+          "action": "后面是可选补充，不必全部照做",
+          "voice": "后面补充环境文件和源码运行。如果 EXE 已经能用，不需要为了使用程序再做这些步骤。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "env_place",
+      "chapter": "补充 A · .env",
+      "title": "想用环境文件，先放对位置",
+      "view": "env",
+      "goal": "推荐只选一种配置方式，减少混淆。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "location",
+          "action": "EXE 同级，或源码项目根目录",
+          "voice": "环境文件叫点 env。EXE 用户把它放在程序旁边；源码用户放在包含 gui_launcher.py 的项目根目录。"
+        },
+        {
+          "seconds": 8,
+          "focus": "extension",
+          "action": "检查文件名，不能是 .env.txt",
+          "voice": "用文本编辑器新建这个文件，保存时选择所有文件类型。打开文件扩展名显示，确认不是点 env 点 txt。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "env_values",
+      "chapter": "补充 A · .env",
+      "title": "写入三项模型环境变量",
+      "view": "env",
+      "goal": "画面是模板，必须替换占位内容。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "key",
+          "action": "OPENAI_API_KEY = 真实密钥",
+          "voice": "第一行写模型密钥；第二行写同一平台的接口地址；第三行写它支持的模型 ID。不要直接照抄占位值。"
+        },
+        {
+          "seconds": 9,
+          "focus": "blank",
+          "action": "没有 SciMaster，就把它留空",
+          "voice": "如果从项目示例复制，删除或清空不用的 SciMaster 密钥占位值。保存为 UTF-8 文本。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "env_priority",
+      "chapter": "补充 A · .env",
+      "title": "为什么改了 .env 却没生效",
+      "view": "env",
+      "goal": "设置页优先；改 .env 后重启应用。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "priority",
+          "action": "设置里的非空值优先",
+          "voice": "设置页里的非空值会覆盖环境文件。想让某一项读取环境文件，就清空设置里的对应项并保存。"
+        },
+        {
+          "seconds": 9,
+          "focus": "restart",
+          "action": "修改环境文件后重启程序",
+          "voice": "环境文件在程序加载时读取。修改它后完整退出并重开；已有系统环境变量也可能覆盖文件里的值。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "source_download",
+      "chapter": "补充 B · 源码运行",
+      "title": "没有合适的 EXE，就下载源码",
+      "view": "source",
+      "goal": "这部分面向 Windows 源码用户。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "zip",
+          "action": "项目主页：Code → Download ZIP",
+          "voice": "打开项目主页，点 Code，再点 Download ZIP。解压源码，不要直接在压缩包里运行。"
+        },
+        {
+          "seconds": 8,
+          "focus": "root",
+          "action": "进入包含 requirements.txt 的目录",
+          "voice": "打开解压后的项目目录，确认看得到 requirements.txt 和 gui_launcher.py。后面命令都在这里执行。"
+        }
+      ],
+      "payload": {}
+    },
+    {
+      "id": "python",
+      "chapter": "补充 B · 源码运行",
+      "title": "安装 Python，并打开终端",
+      "view": "terminal",
+      "goal": "终端就是输入命令的窗口。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "install",
+          "action": "从 python.org 安装 Python 3.12",
+          "voice": "从 Python 官方网站选择 Windows 的 Python 3.12 安装器，安装时启用添加到 PATH 的选项。"
+        },
+        {
+          "seconds": 8,
+          "focus": "terminal",
+          "action": "在项目文件夹里打开 PowerShell",
+          "voice": "在项目文件夹空白处右键，打开终端或 PowerShell。先输入 python --version，确认能显示版本。"
+        }
+      ],
+      "payload": {
+        "commands": [
+          "python --version"
+        ],
+        "note": "显示 Python 3.12.x；命令不可用时，重新打开终端并检查安装。"
+      }
+    },
+    {
+      "id": "venv",
+      "chapter": "补充 B · 源码运行",
+      "title": "复制两条命令，安装项目依赖",
+      "view": "terminal",
+      "goal": "每次只执行一条，等它完成。",
+      "steps": [
+        {
+          "seconds": 9,
+          "focus": "venv",
+          "action": "先创建项目专用 Python 环境",
+          "voice": "先执行第一条命令，建立点 venv 文件夹。这是项目专用环境，后面直接使用里面的 Python。"
+        },
+        {
+          "seconds": 11,
+          "focus": "pip",
+          "action": "再安装 requirements.txt",
+          "voice": "再执行第二条安装依赖。耐心等待命令结束；如果有红色报错，先处理错误，再继续下一步。"
+        }
+      ],
+      "payload": {
+        "commands": [
+          "python -m venv .venv",
+          ".\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt"
+        ],
+        "note": "不用执行 Activate.ps1，避免 PowerShell 激活脚本权限问题。"
+      }
+    },
+    {
+      "id": "source_run",
+      "chapter": "补充 B · 源码运行",
+      "title": "启动 GUI，接回前面的主线",
+      "view": "terminal",
+      "goal": "仍在项目根目录执行。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "run",
+          "action": "运行 gui_launcher.py",
+          "voice": "依赖安装结束后，执行屏幕上的启动命令。出现程序窗口后，回到前面的设置页配置教程。"
+        },
+        {
+          "seconds": 8,
+          "focus": "webengine",
+          "action": "树图不内嵌时，检查依赖",
+          "voice": "如果提示缺少 QtWebEngine，确认依赖安装完整。生成的 HTML 仍可用浏览器查看。"
+        }
+      ],
+      "payload": {
+        "commands": [
+          ".\\.venv\\Scripts\\python.exe gui_launcher.py"
+        ],
+        "note": "以后从这个目录执行同一条命令，就能再次打开程序。"
+      }
+    },
+    {
+      "id": "finish",
+      "chapter": "完成",
+      "title": "把操作变成你自己的研究习惯",
+      "view": "roadmap",
+      "goal": "配置正确、方向清楚，下一次会更快。",
+      "steps": [
+        {
+          "seconds": 8,
+          "focus": "finish",
+          "action": "现在换成你的研究主题试一次",
+          "voice": "保存好配置和地图，用自己的研究主题练一次。遇到问题时，先看提示，再回到对应的排查章节。"
+        }
+      ],
+      "payload": {}
+    }
+  ]
+}

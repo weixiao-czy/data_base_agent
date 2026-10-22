@@ -1,0 +1,548 @@
+[
+  {
+    "id": 1,
+    "start": 0,
+    "seconds": 7,
+    "text": "这是一份零基础操作教程。先打开程序，再填写接口配置，最后检索和保存文献。",
+    "scene": "welcome"
+  },
+  {
+    "id": 2,
+    "start": 7,
+    "seconds": 7,
+    "text": "画面是矢量示意，按钮名称按当前程序制作。遇到要复制的文字，可以暂停视频。",
+    "scene": "welcome"
+  },
+  {
+    "id": 3,
+    "start": 14,
+    "seconds": 8,
+    "text": "打开屏幕上的项目发布页，进入最新发布记录，找到 Assets，也就是下载文件列表。",
+    "scene": "download"
+  },
+  {
+    "id": 4,
+    "start": 22,
+    "seconds": 8,
+    "text": "点击这个点 exe 结尾的文件。主线使用 Windows 程序，不需要先安装 Python。",
+    "scene": "download"
+  },
+  {
+    "id": 5,
+    "start": 30,
+    "seconds": 6,
+    "text": "发布包可能晚于源码更新。如果缺少后面的新按钮，请检查版本，或看源码运行补充章节。",
+    "scene": "download"
+  },
+  {
+    "id": 6,
+    "start": 36,
+    "seconds": 8,
+    "text": "在文档目录里新建一个文件夹，把下载的程序移进去，方便以后找到导出的地图。",
+    "scene": "launch"
+  },
+  {
+    "id": 7,
+    "start": 44,
+    "seconds": 8,
+    "text": "双击程序。只运行确认来自项目发布页的文件；如果系统提示无法运行，先核对来源和系统版本。",
+    "scene": "launch"
+  },
+  {
+    "id": 8,
+    "start": 52,
+    "seconds": 8,
+    "text": "API Key 可以理解为调用模型的钥匙。它不是聊天网站的登录密码，也不要发给别人。",
+    "scene": "three_info"
+  },
+  {
+    "id": 9,
+    "start": 60,
+    "seconds": 8,
+    "text": "Base URL 是模型接口的地址，不是聊天网页地址。使用服务商文档给你的接口地址。",
+    "scene": "three_info"
+  },
+  {
+    "id": 10,
+    "start": 68,
+    "seconds": 8,
+    "text": "模型栏填写平台给出的模型名称。这三项必须配套，不能从三家平台各拿一个。",
+    "scene": "three_info"
+  },
+  {
+    "id": 11,
+    "start": 76,
+    "seconds": 9,
+    "text": "选择你能使用的 OpenAI 兼容接口服务，登录它的 API 控制台。各平台的页面名称可能不同。",
+    "scene": "get_key"
+  },
+  {
+    "id": 12,
+    "start": 85,
+    "seconds": 9,
+    "text": "在 API 密钥或密钥管理入口创建密钥，并妥善保存。有的平台只在创建时展示一次完整值。",
+    "scene": "get_key"
+  },
+  {
+    "id": 13,
+    "start": 94,
+    "seconds": 9,
+    "text": "再从平台的接口文档、模型列表复制地址与模型名，并确认账号有调用额度或相应权限。",
+    "scene": "get_key"
+  },
+  {
+    "id": 14,
+    "start": 103,
+    "seconds": 7,
+    "text": "回到程序，点击左下角设置。这是主线最简单的配置方式，不需要先编辑环境文件。",
+    "scene": "open_settings"
+  },
+  {
+    "id": 15,
+    "start": 110,
+    "seconds": 7,
+    "text": "打开 LLM 配置。这里配置负责理解问题的大模型；另一个 SciMaster 标签是可选的检索服务。",
+    "scene": "open_settings"
+  },
+  {
+    "id": 16,
+    "start": 117,
+    "seconds": 8,
+    "text": "在 API Key 框粘贴刚才创建的真实密钥。不要填写教程占位文字，也不要使用登录密码。",
+    "scene": "fill_key"
+  },
+  {
+    "id": 17,
+    "start": 125,
+    "seconds": 7,
+    "text": "只复制密钥内容，不加引号，不加 Bearer。输入后显示圆点，是程序在隐藏密钥。",
+    "scene": "fill_key"
+  },
+  {
+    "id": 18,
+    "start": 132,
+    "seconds": 8,
+    "text": "把 Base URL 替换成你所用服务商给出的完整接口地址。不要直接粘贴聊天网页链接。",
+    "scene": "fill_url"
+  },
+  {
+    "id": 19,
+    "start": 140,
+    "seconds": 9,
+    "text": "程序默认显示交大的接口地址。只有使用该平台且有权限的人才保留；其他平台请替换。",
+    "scene": "fill_url"
+  },
+  {
+    "id": 20,
+    "start": 149,
+    "seconds": 8,
+    "text": "模型栏填写服务商提供的准确模型 ID。不要把宣传名称、随便起的名字或别家模型名填进去。",
+    "scene": "fill_model"
+  },
+  {
+    "id": 21,
+    "start": 157,
+    "seconds": 8,
+    "text": "核对密钥、地址和模型都来自同一平台，然后点击保存。设置页保存后立即生效。",
+    "scene": "fill_model"
+  },
+  {
+    "id": 22,
+    "start": 165,
+    "seconds": 8,
+    "text": "顶部显示就绪，只说明程序读到了配置，并没有验证服务器。程序目前没有单独的测试连接按钮。",
+    "scene": "verify"
+  },
+  {
+    "id": 23,
+    "start": 173,
+    "seconds": 8,
+    "text": "新建对话，输入示例研究兴趣并发送。收到围绕主题的回复后，继续观察是否有调用失败提示。",
+    "scene": "verify"
+  },
+  {
+    "id": 24,
+    "start": 181,
+    "seconds": 8,
+    "text": "如果出现模拟模式或 LLM 调用失败，不能算大模型连接成功。按下一页的方法排查后再试。",
+    "scene": "verify"
+  },
+  {
+    "id": 25,
+    "start": 189,
+    "seconds": 8,
+    "text": "如果报未授权或权限不足，先核对密钥、账号权限和接口地址。更换密钥后记得保存。",
+    "scene": "auth_errors"
+  },
+  {
+    "id": 26,
+    "start": 197,
+    "seconds": 8,
+    "text": "如果提示模型不存在或无访问权限，就回到平台模型列表，确认准确名称和可用权限。",
+    "scene": "auth_errors"
+  },
+  {
+    "id": 27,
+    "start": 205,
+    "seconds": 8,
+    "text": "如果提示请求过多或额度不足，检查平台额度和调用限制，稍后再试，不要连续猛点发送。",
+    "scene": "auth_errors"
+  },
+  {
+    "id": 28,
+    "start": 213,
+    "seconds": 9,
+    "text": "连接超时先查 Base URL 是否完整、网络能否访问该服务。校园接口还要满足平台的网络要求。",
+    "scene": "network_errors"
+  },
+  {
+    "id": 29,
+    "start": 222,
+    "seconds": 9,
+    "text": "当前模型客户端不读取系统环境代理。有些网络能浏览网页，却无法让程序直连接口，需要检查网络条件。",
+    "scene": "network_errors"
+  },
+  {
+    "id": 30,
+    "start": 231,
+    "seconds": 8,
+    "text": "SciMaster 是另一种文献检索服务，不是模型密钥的重复填写处。没有它的密钥，可以先留空。",
+    "scene": "optional_sci"
+  },
+  {
+    "id": 31,
+    "start": 239,
+    "seconds": 8,
+    "text": "程序可以使用 Crossref 和 arXiv。它们不要求这个密钥，但检索依然需要联网。",
+    "scene": "optional_sci"
+  },
+  {
+    "id": 32,
+    "start": 247,
+    "seconds": 8,
+    "text": "若要启用 SciMaster，还需它自己的密钥与 Node.js 的 npx 环境；本教程主线先使用公开检索。",
+    "scene": "optional_sci"
+  },
+  {
+    "id": 33,
+    "start": 255,
+    "seconds": 8,
+    "text": "配置确认后，点击左侧新对话。我们从头做一次完整流程，后面一直沿用同一个研究主题。",
+    "scene": "question"
+  },
+  {
+    "id": 34,
+    "start": 263,
+    "seconds": 9,
+    "text": "输入：我想研究大模型如何帮助文献检索，先做一篇方法综述。写清主题和目标，再按发送。",
+    "scene": "question"
+  },
+  {
+    "id": 35,
+    "start": 272,
+    "seconds": 8,
+    "text": "程序会先复述理解，再给你方向选项。点最接近你的那个。具体文案会随模型回复变化。",
+    "scene": "clarify"
+  },
+  {
+    "id": 36,
+    "start": 280,
+    "seconds": 8,
+    "text": "如果都不合适，使用其他入口或自由输入补充。你也可以在澄清阶段跳过，先生成计划。",
+    "scene": "clarify"
+  },
+  {
+    "id": 37,
+    "start": 288,
+    "seconds": 8,
+    "text": "出现需求翻译卡后，先读研究问题，再看关键词和查询建议，确认方向没有跑偏。",
+    "scene": "plan"
+  },
+  {
+    "id": 38,
+    "start": 296,
+    "seconds": 8,
+    "text": "再检查不确定性。如果范围不对，点需要调整并说明；也可以重新生成。先不要急着检索。",
+    "scene": "plan"
+  },
+  {
+    "id": 39,
+    "start": 304,
+    "seconds": 8,
+    "text": "现在我们先看文献地图。在翻译卡的确认菜单里，点击以树形图查看文献结构。",
+    "scene": "tree_entry"
+  },
+  {
+    "id": 40,
+    "start": 312,
+    "seconds": 9,
+    "text": "程序会检索种子文献，再按方向发散。这个过程需要时间，等待状态更新，不要反复点击。",
+    "scene": "tree_entry"
+  },
+  {
+    "id": 41,
+    "start": 321,
+    "seconds": 8,
+    "text": "地图的研究主题连接六个研究维度，还有单独的种子文献分支。线条表示主题层级。",
+    "scene": "tree_read"
+  },
+  {
+    "id": 42,
+    "start": 329,
+    "seconds": 8,
+    "text": "第一次了解一个方向，先读综述与奠基，再沿核心方法、数据集与评测或挑战分支深入。",
+    "scene": "tree_read"
+  },
+  {
+    "id": 43,
+    "start": 337,
+    "seconds": 8,
+    "text": "顺着研究维度、检索方向、文献往下看。这不是论文引用网络，也不保证已经覆盖全部文献。",
+    "scene": "tree_read"
+  },
+  {
+    "id": 44,
+    "start": 345,
+    "seconds": 7,
+    "text": "点击节点可以展开或折叠。内容太多时，先收起到维度；想恢复就点全部展开。",
+    "scene": "tree_controls"
+  },
+  {
+    "id": 45,
+    "start": 352,
+    "seconds": 7,
+    "text": "用鼠标滚轮缩放，在空白处按住拖动。找不到图时，点适应窗口。",
+    "scene": "tree_controls"
+  },
+  {
+    "id": 46,
+    "start": 359,
+    "seconds": 8,
+    "text": "在地图搜索框输入查询扩展，相关节点或文献标题会高亮，帮助你定位方向。",
+    "scene": "tree_controls"
+  },
+  {
+    "id": 47,
+    "start": 367,
+    "seconds": 8,
+    "text": "点击一篇文献，在右侧看摘要和详情。画面文献是教学示例，实际结果以接口返回为准。",
+    "scene": "tree_controls"
+  },
+  {
+    "id": 48,
+    "start": 375,
+    "seconds": 7,
+    "text": "看完后点右上角返回对话。你会回到计划确认阶段，可以继续调整或开始普通文献检索。",
+    "scene": "return"
+  },
+  {
+    "id": 49,
+    "start": 382,
+    "seconds": 8,
+    "text": "如果内嵌页不可用，程序可改用浏览器打开已生成的地图。这不等于检索失败。",
+    "scene": "return"
+  },
+  {
+    "id": 50,
+    "start": 390,
+    "seconds": 8,
+    "text": "回到翻译卡确认菜单，点击确认，开始检索。这个操作会执行计划里的检索查询。",
+    "scene": "search"
+  },
+  {
+    "id": 51,
+    "start": 398,
+    "seconds": 8,
+    "text": "等待检索结果。结果多少取决于主题、接口和网络；没有结果时，下一步可以细化检索。",
+    "scene": "search"
+  },
+  {
+    "id": 52,
+    "start": 406,
+    "seconds": 8,
+    "text": "结果出现后，先看标题、年份和摘要，判断它是否真的回答你的研究问题，不要只看关键词相似。",
+    "scene": "results"
+  },
+  {
+    "id": 53,
+    "start": 414,
+    "seconds": 8,
+    "text": "点击可用的论文标题或来源链接，去原始页面核对。摘要或全文能否访问，取决于数据源。",
+    "scene": "results"
+  },
+  {
+    "id": 54,
+    "start": 422,
+    "seconds": 8,
+    "text": "要保存检索计划，点击顶部导出翻译卡。选择自己找得到的位置，给文件起名后保存。",
+    "scene": "exports"
+  },
+  {
+    "id": 55,
+    "start": 430,
+    "seconds": 8,
+    "text": "要保存论文清单，完成检索后再点导出结果。主线建议保存成点 txt 文件，方便直接打开。",
+    "scene": "exports"
+  },
+  {
+    "id": 56,
+    "start": 438,
+    "seconds": 8,
+    "text": "地图会自动生成 HTML、Markdown 和 JSON 三种文件，放在程序或项目目录下的 output/maps 文件夹。",
+    "scene": "exports"
+  },
+  {
+    "id": 57,
+    "start": 446,
+    "seconds": 8,
+    "text": "回到聊天页，点击最近地图，选一项重新打开。这里也能选择打开其他文件。",
+    "scene": "reopen"
+  },
+  {
+    "id": 58,
+    "start": 454,
+    "seconds": 8,
+    "text": "也可以点导入树形图文件，进入 output/maps，选择以前保存的 HTML 文件，然后打开。",
+    "scene": "reopen"
+  },
+  {
+    "id": 59,
+    "start": 462,
+    "seconds": 8,
+    "text": "已经生成的 HTML 可以离线浏览。生成新地图仍需要联网。文件被移动或删除时，要重新选择正确路径。",
+    "scene": "reopen"
+  },
+  {
+    "id": 60,
+    "start": 470,
+    "seconds": 8,
+    "text": "如果没结果，先检查网络和提示，再换更明确的研究主题、关键词，必要时尝试对应的英文术语。",
+    "scene": "empty"
+  },
+  {
+    "id": 61,
+    "start": 478,
+    "seconds": 8,
+    "text": "结果页选择细化检索，或点击新对话，再走一遍澄清与计划。结果页不再显示原来的地图入口菜单。",
+    "scene": "empty"
+  },
+  {
+    "id": 62,
+    "start": 486,
+    "seconds": 8,
+    "text": "现在你已经走完配置、澄清、地图、检索和保存。用自己的研究主题再做一次，就能熟悉流程。",
+    "scene": "summary"
+  },
+  {
+    "id": 63,
+    "start": 494,
+    "seconds": 8,
+    "text": "后面补充环境文件和源码运行。如果 EXE 已经能用，不需要为了使用程序再做这些步骤。",
+    "scene": "summary"
+  },
+  {
+    "id": 64,
+    "start": 502,
+    "seconds": 8,
+    "text": "环境文件叫点 env。EXE 用户把它放在程序旁边；源码用户放在包含 gui_launcher.py 的项目根目录。",
+    "scene": "env_place"
+  },
+  {
+    "id": 65,
+    "start": 510,
+    "seconds": 8,
+    "text": "用文本编辑器新建这个文件，保存时选择所有文件类型。打开文件扩展名显示，确认不是点 env 点 txt。",
+    "scene": "env_place"
+  },
+  {
+    "id": 66,
+    "start": 518,
+    "seconds": 9,
+    "text": "第一行写模型密钥；第二行写同一平台的接口地址；第三行写它支持的模型 ID。不要直接照抄占位值。",
+    "scene": "env_values"
+  },
+  {
+    "id": 67,
+    "start": 527,
+    "seconds": 9,
+    "text": "如果从项目示例复制，删除或清空不用的 SciMaster 密钥占位值。保存为 UTF-8 文本。",
+    "scene": "env_values"
+  },
+  {
+    "id": 68,
+    "start": 536,
+    "seconds": 9,
+    "text": "设置页里的非空值会覆盖环境文件。想让某一项读取环境文件，就清空设置里的对应项并保存。",
+    "scene": "env_priority"
+  },
+  {
+    "id": 69,
+    "start": 545,
+    "seconds": 9,
+    "text": "环境文件在程序加载时读取。修改它后完整退出并重开；已有系统环境变量也可能覆盖文件里的值。",
+    "scene": "env_priority"
+  },
+  {
+    "id": 70,
+    "start": 554,
+    "seconds": 8,
+    "text": "打开项目主页，点 Code，再点 Download ZIP。解压源码，不要直接在压缩包里运行。",
+    "scene": "source_download"
+  },
+  {
+    "id": 71,
+    "start": 562,
+    "seconds": 8,
+    "text": "打开解压后的项目目录，确认看得到 requirements.txt 和 gui_launcher.py。后面命令都在这里执行。",
+    "scene": "source_download"
+  },
+  {
+    "id": 72,
+    "start": 570,
+    "seconds": 9,
+    "text": "从 Python 官方网站选择 Windows 的 Python 3.12 安装器，安装时启用添加到 PATH 的选项。",
+    "scene": "python"
+  },
+  {
+    "id": 73,
+    "start": 579,
+    "seconds": 8,
+    "text": "在项目文件夹空白处右键，打开终端或 PowerShell。先输入 python --version，确认能显示版本。",
+    "scene": "python"
+  },
+  {
+    "id": 74,
+    "start": 587,
+    "seconds": 9,
+    "text": "先执行第一条命令，建立点 venv 文件夹。这是项目专用环境，后面直接使用里面的 Python。",
+    "scene": "venv"
+  },
+  {
+    "id": 75,
+    "start": 596,
+    "seconds": 11,
+    "text": "再执行第二条安装依赖。耐心等待命令结束；如果有红色报错，先处理错误，再继续下一步。",
+    "scene": "venv"
+  },
+  {
+    "id": 76,
+    "start": 607,
+    "seconds": 8,
+    "text": "依赖安装结束后，执行屏幕上的启动命令。出现程序窗口后，回到前面的设置页配置教程。",
+    "scene": "source_run"
+  },
+  {
+    "id": 77,
+    "start": 615,
+    "seconds": 8,
+    "text": "如果提示缺少 QtWebEngine，确认依赖安装完整。生成的 HTML 仍可用浏览器查看。",
+    "scene": "source_run"
+  },
+  {
+    "id": 78,
+    "start": 623,
+    "seconds": 8,
+    "text": "保存好配置和地图，用自己的研究主题练一次。遇到问题时，先看提示，再回到对应的排查章节。",
+    "scene": "finish"
+  }
+]
