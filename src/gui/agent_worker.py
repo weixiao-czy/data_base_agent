@@ -7,6 +7,7 @@ import sys
 import os
 import re
 import queue
+import threading
 from PyQt6.QtCore import QThread, pyqtSignal
 
 # 确保 src 在 path 中
@@ -72,6 +73,52 @@ def split_options(text: str):
     return body, options
 
 
+# 同一 API Key 下最多允许的真实追问请求并发数。选项可能多于 3 个，
+# 多出的分支排队；已作废且尚未开始的任务拿到槽位后会直接退出，不再请求。
+_PROBE_PARALLELISM = 3
+
+
+class _ProbeBranch:
+    """当前问题某个选项对应的下一题预生成任务
+
+    每次请求仍然只生成一道题。当前题展示后，为每个选项建立一个分支，
+    上下文里加入「假设用户选了这个选项」；用户实际选择后只采信匹配分支，
+    其余分支标记作废。任务不直接操作 Agent 或发界面信号，避免串话。
+    """
+
+    def __init__(self, clarifier, context: dict, option_key: str,
+                 generation: int, slots):
+        self._clarifier = clarifier
+        self._context = context
+        self._slots = slots
+        self.option_key = option_key
+        self.generation = generation
+        self.event = threading.Event()
+        self.question = ""
+        self.error = ""
+        self.cancelled = False
+        self.started = False
+        self.thread = None
+
+    def start(self):
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+        return self
+
+    def _run(self):
+        with self._slots:
+            if self.cancelled:
+                self.event.set()
+                return
+            self.started = True
+            try:
+                self.question = self._clarifier.probe_key_fork(self._context)
+            except Exception as e:  # 预生成永不抛出，失败由主流程现场兜底
+                self.error = str(e)
+            finally:
+                self.event.set()
+
+
 class AgentWorker(QThread):
     """
     在后台线程中运行 Agent 对话逻辑。
@@ -109,6 +156,11 @@ class AgentWorker(QThread):
         self._running = True
         self._llm_init_error = ""
         self._warned_keys = set()
+        # 当前问题 -> 各选项的下一题预生成任务。任务只在 Worker 线程里登记/选取，
+        # 后台线程仅写自己的结果字段，不碰 Agent 状态。
+        self._probe_branches = {}
+        self._probe_generation = 0
+        self._probe_slots = threading.BoundedSemaphore(_PROBE_PARALLELISM)
 
     def _warn_once(self, key: str, text: str):
         """同一类警告只播报一次，避免每轮追问都刷屏"""
@@ -139,6 +191,7 @@ class AgentWorker(QThread):
     def stop(self):
         """停止工作线程"""
         self._running = False
+        self._invalidate_probe_branches()
         self._queue.put(("stop", None))
 
     # ------------------------------------------------ 工作线程主循环
@@ -152,6 +205,7 @@ class AgentWorker(QThread):
             if kind == "stop":
                 break
             if kind == "reset":
+                self._invalidate_probe_branches()
                 self.agent = None
                 continue
             if kind == "input":
@@ -219,6 +273,8 @@ class AgentWorker(QThread):
             "search_provider": search_provider,
             "current_options": [],
             "search_results": [],
+            # 当前澄清题的合法选项键，用于区分手工补充与分支命中
+            "probe_keys": set(),
         }
 
     def _process(self, user_text: str):
@@ -331,46 +387,137 @@ class AgentWorker(QThread):
             sm.transition(AgentState.GENERATE_PLAN_CARD)
             self._handle_generate_plan()
 
-    def _do_probe(self):
-        sm = self.agent["state_machine"]
-        clarifier = self.agent["clarifier"]
+    # ------------------------------------------------ 选项分支并行预生成
 
-        self.status.emit("正在生成澄清问题…")
-        context = {
+    def _probe_context(self, hypothetical_key: str = None) -> dict:
+        """构造单题请求上下文；可选地追加一个假设的选项回答
+
+        预生成下一题时，当前 agent 问题已经在历史中，这里再加入假设答案，
+        与旧流程中用户真正作答后的上下文结构完全一致。
+        """
+        sm = self.agent["state_machine"]
+        history = [dict(entry) for entry in sm.clarification_history]
+        if hypothetical_key is not None:
+            history.append({"role": "user", "content": hypothetical_key})
+        return {
             "interpretation": sm.interpretation,
-            "history": sm.clarification_history,
+            "history": history,
             "current_round": sm.current_round,
             "max_rounds": sm.max_rounds,
         }
-        question = clarifier.probe_key_fork(context)
-        remaining = sm.get_remaining_rounds()
 
+    def _invalidate_probe_branches(self, keep=None):
+        """作废未选择的分支；keep 为用户实际选择、仍需等待的那个任务"""
+        for branch in self._probe_branches.values():
+            if branch is not keep:
+                branch.cancelled = True
+        self._probe_branches = {}
+        if keep is None:
+            self._probe_generation += 1
+
+    def _start_probe_branches(self, options):
+        """当前题展示后，按选项并行预生成下一题（每个请求仍只有一题）"""
+        self._invalidate_probe_branches()
+        sm = self.agent["state_machine"]
+        if not options or sm.get_remaining_rounds() <= 0:
+            return
+
+        generation = self._probe_generation
+        clarifier = self.agent["clarifier"]
+        for option in options:
+            key = str(option.get("key", "")).strip()
+            if not key:
+                continue
+            branch = _ProbeBranch(
+                clarifier,
+                self._probe_context(hypothetical_key=key),
+                key,
+                generation,
+                self._probe_slots,
+            )
+            self._probe_branches[key] = branch.start()
+
+    def _match_probe_key(self, text: str):
+        """用户作答是否正好是某个选项键
+
+        必须逐字相同。界面在 `OptionBlock.match()` 里已经把「1」「a」和
+        完整选项文案都归一成规范键再下发，所以走到这里的只可能是真正的
+        选项键。这样预生成分支里的「假设回答」与用户实际作答的文本完全
+        一致，下一题的上下文与逐题现场生成没有差别；哪天别的调用方直接
+        塞进变体文本，也只会退回现场生成，不会用到上下文错误的分支。
+        """
+        value = text.strip()
+        for key in self.agent.get("probe_keys", set()):
+            if value == key:
+                return key
+        return None
+
+    def _generate_probe_now(self):
+        self.status.emit("正在生成澄清问题…")
+        return self.agent["clarifier"].probe_key_fork(self._probe_context())
+
+    def _do_probe(self, selected=None):
+        """展示下一题；selected 是与实际选项匹配的预生成分支
+
+        分支未完成时只等待它，不另发相同请求。这样既保留旧版逐题上下文，
+        又把模型耗时藏进用户阅读、选择当前题的时间里。
+        """
+        sm = self.agent["state_machine"]
+        question = ""
+        if selected is not None:
+            if not selected.event.is_set():
+                self.status.emit("正在按你的选择生成下一题…")
+            while self._running and not selected.event.wait(0.2):
+                pass
+            if not self._running:
+                return
+            if not selected.cancelled and not selected.error:
+                question = selected.question
+
+        # 首题、自由输入或预生成失败时，走原来的现场单题路径
+        if not question:
+            question = self._generate_probe_now()
+
+        remaining = sm.get_remaining_rounds()
         sm.add_to_history("agent", question)
         sm.increment_round()
 
-        # 追问文本里带着 A/B/C 选项（LLM 模式还带 [说明]/[问题]/[选项] 标记），
-        # 拆成「正文 + 选项按钮」两段，正文照旧显示，选项交给界面渲染
         body, options = split_options(question)
         head = f"（还剩 {remaining} 轮澄清机会）"
         self.agent_response.emit(f"{head}\n\n{body}" if body else head)
-        # 即使模型没给出可解析的选项，也要下发一次空选项组：
-        # 界面据此渲染「跳过」与「其他」入口，不让用户被追问困住。
         self.options_ready.emit(options, True)
         self.round_info.emit(f"剩余澄清轮次：{remaining}")
+        self.agent["probe_keys"] = {str(o["key"]) for o in options if o.get("key")}
         sm.transition(AgentState.PROBE_KEY_FORK)
+
+        # 还有下一轮才预生成；最后一题展示后不再浪费请求
+        self._start_probe_branches(options)
 
     def _handle_probe(self, text: str):
         sm = self.agent["state_machine"]
-        sm.add_to_history("user", text)
 
         if text.lower() in ("跳过", "skip"):
+            sm.add_to_history("user", text)
+            self._invalidate_probe_branches()
             sm.transition(AgentState.GENERATE_PLAN_CARD)
             self._handle_generate_plan()
             return
 
+        key = self._match_probe_key(text)
+        selected = None
+        if key is not None and sm.can_clarify():
+            candidate = self._probe_branches.get(key)
+            if candidate is not None and candidate.generation == self._probe_generation:
+                selected = candidate
+
+        # 选项回答只保留命中分支；自由输入则全部作废，下一题现场重算
+        self._invalidate_probe_branches(keep=selected)
+        sm.add_to_history("user", text)
+
         if sm.can_clarify():
-            self._do_probe()
+            self._do_probe(selected=selected)
         else:
+            self._invalidate_probe_branches()
             sm.transition(AgentState.GENERATE_PLAN_CARD)
             self._handle_generate_plan()
 
