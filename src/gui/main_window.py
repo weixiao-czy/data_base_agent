@@ -464,7 +464,16 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------ 对话管理
 
     def _new_conversation(self):
-        conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 秒级时间戳在快速连点时会重复；重名会覆盖上一条对话及其历史文件
+        conv_id = base_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = 2
+        while (
+            conv_id in self._conversations
+            or os.path.exists(os.path.join(_HISTORY_DIR, f"{conv_id}.json"))
+        ):
+            conv_id = f"{base_id}_{suffix}"
+            suffix += 1
+
         self._current_conv_id = conv_id
         self._conversations[conv_id] = {
             "title": "新对话",
